@@ -1,0 +1,239 @@
+.container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h2 {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.addBtn {
+    padding: 10px 20px;
+    background-color: var(--accent-teal);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stageList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stageItem {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.stageItem.disabled {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-color: var(--border-color-muted);
+    opacity: 0.7;
+}
+
+.stageItem.disabled .stageName {
+    color: var(--text-muted);
+}
+
+.stageItem.disabled .stageKey {
+    background-color: rgba(255, 255, 255, 0.01);
+}
+
+.stageItem.disabled .orderBadge {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color-muted);
+    color: var(--text-muted);
+}
+
+.stageItem:hover {
+    border-color: var(--accent-teal-soft);
+}
+
+.dragging {
+    opacity: 0.5;
+    background-color: rgba(0, 201, 177, 0.05);
+    border-style: dashed;
+}
+
+.dragHandle {
+    cursor: grab;
+    color: var(--text-muted);
+    font-size: 20px;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+}
+
+.dragHandle:active {
+    cursor: grabbing;
+}
+
+.orderBadge {
+    width: 28px;
+    height: 28px;
+    background-color: var(--bg-input);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-teal);
+    border: 1px solid var(--border-color);
+}
+
+.stageInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stageName {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.stageKey {
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    background-color: rgba(255, 255, 255, 0.02);
+    padding: 2px 6px;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.statusWrapper {
+    width: 120px;
+}
+
+.statusBadge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    display: inline-block;
+}
+
+.enabled { background: rgba(0, 201, 177, 0.1); color: var(--accent-teal); }
+.disabled { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+
+.actions {
+    display: flex;
+    gap: 12px;
+}
+
+.actionBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+}
+
+.actionBtn:hover { color: var(--accent-teal); }
+
+/* Modal */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 450px;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.modalHeader {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modalBody {
+    padding: 20px;
+}
+
+.formGroup {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input {
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+}
+
+.modalFooter {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.cancelBtn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: var(--text-muted);
+}
+
+.submitBtn {
+    background: var(--accent-teal);
+    color: var(--bg-dark);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+}

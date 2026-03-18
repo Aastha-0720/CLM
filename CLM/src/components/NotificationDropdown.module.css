@@ -1,0 +1,162 @@
+.notificationContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.bellButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 8px;
+    color: var(--text-secondary);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.bellButton:hover {
+    color: var(--accent-teal);
+}
+
+.badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #EF4444;
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-dark);
+}
+
+.dropdown {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    width: 350px;
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownHeader {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dropdownHeader h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.markAllBtn {
+    background: none;
+    border: none;
+    color: var(--accent-teal);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.notificationList {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notificationItem {
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.notificationItem:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.unread {
+    background: rgba(0, 201, 177, 0.03);
+}
+
+.iconWrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.type_approval { background: rgba(0, 201, 177, 0.1); color: var(--accent-teal); }
+.type_stage { background: rgba(16, 185, 129, 0.1); color: #10B981; }
+.type_signature { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.message {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+.time {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.footer {
+    padding: 12px;
+    text-align: center;
+    border-top: 1px solid var(--border-color);
+}
+
+.viewAll {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.viewAll:hover {
+    color: var(--accent-teal);
+}
+
+.emptyState {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+}

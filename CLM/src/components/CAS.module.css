@@ -1,0 +1,357 @@
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.mainLayout {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+}
+
+.listSection {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.pageHeader {
+    margin-bottom: 8px;
+}
+
+.pageTitle {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.pageSubtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.statsRow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.kpiCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.kpiIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.kpiValue {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.kpiLabel {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.tableCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.tableHeader {
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tableSearch {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    font-size: 13px;
+    width: 280px;
+}
+
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.table th {
+    padding: 16px 24px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table td {
+    padding: 16px 24px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+}
+
+.selectedRow td {
+    background-color: rgba(0, 201, 177, 0.05) !important;
+}
+
+.idCell {
+    font-family: monospace;
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+
+.titleCell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contractTitle {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.unitTag {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.roleInitials {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.valueCell {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.statusBadge {
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.viewBtn {
+    background: transparent;
+    color: var(--accent-teal);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.viewBtn:hover {
+    text-decoration: underline;
+}
+
+/* Detail Panel */
+.detailPanel {
+    width: 450px;
+    background-color: var(--bg-sidebar);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.panelHeader {
+    padding: 32px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panelTag {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--accent-teal);
+    letter-spacing: 1.5px;
+}
+
+.downloadBtn {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.downloadBtn:hover {
+    border-color: var(--accent-teal);
+}
+
+.panelContent {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+
+.sectionHeader {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    margin-bottom: 24px;
+}
+
+.detailGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.detailItem {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detailItemFull {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detailItem label,
+.detailItemFull label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.detailItem span,
+.detailItemFull span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.detailItemFull p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.emphasize {
+    font-size: 20px !important;
+    color: var(--accent-teal) !important;
+}
+
+.workflowList {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.workflowItem {
+    display: flex;
+    gap: 16px;
+    position: relative;
+}
+
+.workflowItem:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 32px;
+    bottom: -24px;
+    width: 1px;
+    background-color: var(--border-color);
+}
+
+.wfIcon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    background-color: var(--bg-sidebar);
+    z-index: 2;
+}
+
+.wfContent {
+    flex: 1;
+}
+
+.wfMain {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.wfName {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.wfStatus {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.wfSub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.wfDate {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: block;
+}

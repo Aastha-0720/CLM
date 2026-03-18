@@ -1,0 +1,58 @@
+﻿clm-backend-1  | Traceback (most recent call last):
+clm-backend-1  |   File "/usr/local/bin/uvicorn", line 8, in <module>
+clm-backend-1  |     sys.exit(main())
+clm-backend-1  |              ^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1485, in __call__
+clm-backend-1  |     return self.main(*args, **kwargs)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1406, in main
+clm-backend-1  |     rv = self.invoke(ctx)
+clm-backend-1  |          ^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1269, in invoke
+clm-backend-1  |     return ctx.invoke(self.callback, **ctx.params)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/click/core.py", line 824, in invoke
+clm-backend-1  |     return callback(*args, **kwargs)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 416, in main
+clm-backend-1  |     run(
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 587, in run
+clm-backend-1  |     server.run()
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+clm-backend-1  |     return asyncio.run(self.serve(sockets=sockets))
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+clm-backend-1  |     return runner.run(main)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+clm-backend-1  |     return self._loop.run_until_complete(task)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+clm-backend-1  |     return future.result()
+clm-backend-1  |            ^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 68, in serve
+clm-backend-1  |     config.load()
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 467, in load
+clm-backend-1  |     self.loaded_app = import_from_string(self.app)
+clm-backend-1  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 21, in import_from_string
+clm-backend-1  |     module = importlib.import_module(module_str)
+clm-backend-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+clm-backend-1  |     return _bootstrap._gcd_import(name[level:], package, level)
+clm-backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+clm-backend-1  |   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+clm-backend-1  |   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+clm-backend-1  |   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+clm-backend-1  |   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+clm-backend-1  |   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+clm-backend-1  |   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+clm-backend-1  |   File "/app/main.py", line 3, in <module>
+clm-backend-1  |     from db_connection import init_db
+clm-backend-1  |   File "/app/db_connection.py", line 2, in <module>
+clm-backend-1  |     from motor.motor_asyncio import AsyncIOMotorClient
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/motor/motor_asyncio.py", line 18, in <module>
+clm-backend-1  |     from . import core, motor_gridfs
+clm-backend-1  |   File "/usr/local/lib/python3.11/site-packages/motor/core.py", line 31, in <module>
+clm-backend-1  |     from pymongo.cursor import _QUERY_OPTIONS, Cursor, RawBatchCursor
+clm-backend-1  | ImportError: cannot import name '_QUERY_OPTIONS' from 'pymongo.cursor' (/usr/local/lib/python3.11/site-packages/pymongo/cursor.py)

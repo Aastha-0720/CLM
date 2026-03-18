@@ -1,0 +1,683 @@
+.dashboard {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    background-color: #0d1117;
+    min-height: calc(100vh - var(--header-height));
+    color: #F9FAFB;
+}
+
+/* Stats Row */
+.statsRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.statCard {
+    background-color: #161b22;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.statCard:hover {
+    transform: translateY(-4px);
+    border-color: #00d4aa;
+}
+
+.statHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.statIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.success { background-color: rgba(35, 134, 54, 0.15); color: #3fb950; }
+.warning { background-color: rgba(187, 128, 9, 0.15); color: #d29922; }
+.info { background-color: rgba(31, 111, 235, 0.15); color: #58a6ff; }
+.primary { background-color: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+
+.trend {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3fb950;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.badge {
+    background-color: rgba(187, 128, 9, 0.2);
+    color: #d29922;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid rgba(187, 128, 9, 0.3);
+}
+
+.statContent {
+    display: flex;
+    flex-direction: column;
+}
+
+.statLabel {
+    font-size: 14px;
+    color: #8b949e;
+    font-weight: 500;
+}
+
+.statValue {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f0f6fc;
+}
+
+.statSubValue {
+    font-size: 12px;
+    color: #00d4aa;
+    font-weight: 600;
+}
+
+/* Charts Grid */
+.chartsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+}
+
+.chartCard {
+    background-color: #161b22;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cardHeader h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f0f6fc;
+}
+
+.moreIcon {
+    color: #8b949e;
+    cursor: pointer;
+}
+
+.chartWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.donutLegend {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* Bottom Grid */
+.bottomGrid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+}
+
+.widgetCard {
+    background-color: #161b22;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.textBtn {
+    background: transparent;
+    color: #00d4aa;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.approvalList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.approvalItem {
+    padding: 16px;
+    background-color: #0d1117;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.approvalInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contractTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f0f6fc;
+}
+
+.customerName {
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.approvalRight {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.contractValue {
+    font-weight: 600;
+    color: #00d4aa;
+    font-size: 14px;
+}
+
+.reviewBtn {
+    background-color: #21262d;
+    color: #c9d1d9;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #30363d;
+}
+
+.reviewBtn:hover {
+    background-color: #30363d;
+    color: #f0f6fc;
+}
+
+/* Activity Feed */
+.activityFeed {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.activityRow {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.userAvatar {
+    width: 32px;
+    height: 32px;
+    background-color: #30363d;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #00d4aa;
+    flex-shrink: 0;
+}
+
+.activityContent {
+    flex: 1;
+}
+
+.activityContent p {
+    font-size: 13px;
+    color: #c9d1d9;
+    line-height: 1.4;
+}
+
+.targetTag {
+    color: #58a6ff;
+    margin-left: 4px;
+    font-weight: 500;
+}
+
+.timestamp {
+    font-size: 11px;
+    color: #8b949e;
+}
+
+.actionBadge {
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.create { color: #3fb950; background: rgba(63, 185, 80, 0.1); }
+.approve { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+.config { color: #58a6ff; background: rgba(88, 166, 255, 0.1); }
+.delete { color: #f85149; background: rgba(248, 81, 73, 0.1); }
+.auth, .review, .assign, .reject { color: #8b949e; background: rgba(139, 148, 158, 0.1); }
+.success { color: #00d4aa; background: rgba(0, 212, 170, 0.1); }
+
+.cardFooter {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.viewAllBtn {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: #8b949e;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.viewAllBtn:hover {
+    color: #f0f6fc;
+    border-color: #8b949e;
+}
+
+/* Loading States */
+.loadingContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    gap: 20px;
+    color: #8b949e;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 212, 170, 0.1);
+    border-top: 3px solid #00d4aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1100px) {
+    .bottomGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Table Styles for Pending Approvals */
+.tableContainer {
+    overflow-x: auto;
+}
+
+.approvalsTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.approvalsTable th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #30363d;
+}
+
+.approvalsTable td {
+    padding: 16px;
+    border-bottom: 1px solid #21262d;
+}
+
+.tableRow:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.contractInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.approverName {
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.valueCell {
+    font-weight: 600;
+    color: #00d4aa;
+    font-size: 14px;
+}
+
+.statusBadge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pending { background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.under_review { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.awaiting_sign { background-color: rgba(139, 92, 246, 0.1); color: #a78bfa; }
+
+.actionBtn, .actionBtnSecondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+.actionBtn {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+}
+
+.actionBtn:hover {
+    background-color: rgba(63, 185, 80, 0.25);
+}
+
+.actionBtnSecondary {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+}
+
+.actionBtnSecondary:hover {
+    background-color: rgba(248, 81, 73, 0.25);
+}
+
+/* Activity Table Styles */
+.activityTableContainer {
+    overflow-x: auto;
+}
+
+.activityTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.activityTable th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #30363d;
+}
+
+.activityTable td {
+    padding: 16px;
+    border-bottom: 1px solid #21262d;
+}
+
+.userInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.userName {
+    font-weight: 600;
+    color: #f0f6fc;
+    font-size: 14px;
+}
+
+.actionInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.actionText {
+    font-size: 14px;
+    color: #c9d1d9;
+}
+
+.timestampCell {
+    font-size: 12px;
+    color: #8b949e;
+    white-space: nowrap;
+}
+
+/* System Health Status */
+.healthSection {
+    margin-top: 32px;
+}
+
+.sectionTitle {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f0f6fc;
+    margin-bottom: 24px;
+}
+
+.healthGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.healthCard {
+    background-color: #161b22;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    position: relative;
+    overflow: hidden;
+}
+
+.healthCard.success {
+    border-color: rgba(63, 185, 80, 0.3);
+}
+
+.healthCard.warning {
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.healthCard.error {
+    border-color: rgba(248, 81, 73, 0.3);
+}
+
+.healthHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.healthHeader h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f0f6fc;
+}
+
+.healthStatus {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.healthCard.success .healthStatus {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+}
+
+.healthCard.warning .healthStatus {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.healthCard.error .healthStatus {
+    background-color: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+}
+
+.healthDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.healthMetric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metricLabel {
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.metricValue {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c9d1d9;
+}
+
+.healthIndicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+.healthCard.success .indicator {
+    background-color: #3fb950;
+    height: 100%;
+}
+
+.healthCard.warning .indicator {
+    background-color: #f59e0b;
+    height: 100%;
+}
+
+.healthCard.error .indicator {
+    background-color: #f85149;
+    height: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard {
+        padding: 16px;
+        gap: 24px;
+    }
+    
+    .statsRow {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .chartsGrid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .healthGrid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .approvalsTable th,
+    .approvalsTable td,
+    .activityTable th,
+    .activityTable td {
+        padding: 12px 8px;
+        font-size: 11px;
+    }
+    
+    .actionBtn, .actionBtnSecondary {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .statCard {
+        padding: 16px;
+    }
+    
+    .statValue {
+        font-size: 24px;
+    }
+    
+    .healthCard {
+        padding: 16px;
+    }
+    
+    .healthHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
