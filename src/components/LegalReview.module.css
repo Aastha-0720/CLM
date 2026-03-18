@@ -1,0 +1,479 @@
+.container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+    height: calc(100vh - 80px);
+    /* Adjust to viewport */
+}
+
+.dashboardLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    flex: 1;
+    min-height: 0;
+    /* Important for flex child scroll */
+}
+
+.mainContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+    /* Enable scroll on main content */
+    padding-right: 8px;
+    flex: 1;
+}
+
+/* KPI Cards */
+.kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.kpiCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.kpiIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.kpiInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.kpiValue {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.kpiLabel {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* Table Section */
+.tableCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.cardHeader h3 {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.tableContainer {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    min-width: 800px;
+}
+
+.table th {
+    padding: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table td {
+    padding: 16px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.idCell {
+    font-family: monospace;
+    color: var(--accent-teal);
+}
+
+.titleCell {
+    font-weight: 600;
+}
+
+.reviewBtn {
+    background-color: transparent;
+    border: 1px solid var(--accent-teal);
+    color: var(--accent-teal);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.reviewBtn:hover {
+    background-color: var(--accent-teal);
+    color: var(--bg-dark);
+}
+
+/* Badges */
+.statusBadge,
+.priorityBadge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-block;
+}
+
+/* Priority Styles */
+.high {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+.medium {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.low {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+/* Status Styles */
+/* Modal Overlay and Container */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+}
+
+.modal {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    width: 720px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    animation: modalScaleUp 0.3s ease-out;
+    overflow: hidden;
+}
+
+@keyframes modalScaleUp {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Modal Header */
+.modalHeader {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-card);
+}
+
+.headerTitleGroup {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.legalIcon {
+    font-size: 24px;
+    background-color: rgba(0, 201, 177, 0.1);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.contractSubtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.closeBtn {
+    background: transparent;
+    font-size: 28px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.closeBtn:hover {
+    color: var(--text-primary);
+}
+
+/* Modal Body */
+.modalBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+.modalBody::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 10px;
+}
+
+/* Info Card */
+.infoCard {
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+}
+
+.infoField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.infoField label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.tealValue {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-teal);
+}
+
+/* Clause Cards */
+.clauseCardsGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.clauseCard {
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.clauseHeader {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.clauseNumber {
+    color: var(--accent-teal);
+    margin-right: 8px;
+}
+
+.clauseInputs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fullWidthSelect {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+}
+
+.fullWidthTextarea {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100%;
+    height: 100px;
+    resize: none;
+    outline: none;
+}
+
+.fullWidthTextarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.clauseActions {
+    display: flex;
+    gap: 12px;
+}
+
+/* Outlined Buttons */
+.outlinedApproveBtn,
+.outlinedFlagBtn {
+    flex: 1;
+    background: transparent;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.outlinedApproveBtn {
+    border: 1px solid var(--accent-teal);
+    color: var(--accent-teal);
+}
+
+.outlinedApproveBtn:hover {
+    background-color: rgba(0, 201, 177, 0.1);
+}
+
+.outlinedFlagBtn {
+    border: 1px solid #F59E0B;
+    color: #F59E0B;
+}
+
+.outlinedFlagBtn:hover {
+    background-color: rgba(245, 158, 11, 0.1);
+}
+
+/* Modal Footer */
+.modalFooter {
+    padding: 24px 32px;
+    border-top: 1px solid var(--border-color);
+    background-color: rgba(10, 15, 30, 0.95);
+}
+
+.footerActions {
+    display: flex;
+    gap: 16px;
+}
+
+.filledApproveBtn,
+.filledRequestBtn,
+.filledRejectBtn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.btnIcon {
+    font-size: 16px;
+}
+
+.filledApproveBtn {
+    background-color: var(--accent-teal);
+    color: var(--bg-dark);
+}
+
+.filledRequestBtn {
+    background-color: #F59E0B;
+    color: var(--bg-dark);
+}
+
+.filledRejectBtn {
+    background-color: #EF4444;
+    color: var(--text-primary);
+}
+
+.filledApproveBtn:hover,
+.filledRequestBtn:hover,
+.filledRejectBtn:hover {
+    filter: brightness(1.1);
+}

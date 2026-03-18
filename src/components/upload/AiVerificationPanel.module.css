@@ -1,0 +1,176 @@
+.panelContainer {
+    margin-top: 2rem;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    backdrop-filter: blur(10px);
+    animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panelHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.titleGroup h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #e2e8f0;
+}
+
+.titleGroup p {
+    margin: 4px 0 0 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.scoreWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.scoreText {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 4px;
+}
+
+.progressBarTrack {
+    width: 200px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progressBarFill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    transition: width 1s ease;
+}
+
+.contentGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.sectionTitle {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+}
+
+.riskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.riskBadge {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badgeHigh {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.badgeMedium {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+
+.badgeLow {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: currentColor;
+}
+
+.warningList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.warningItem {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+}
+
+.warningIcon {
+    margin-right: 10px;
+    color: #f59e0b;
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.submitBtn {
+    background: var(--blue-accent);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submitBtn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.submitBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 2rem;
+    color: #64748b;
+    font-style: italic;
+}

@@ -1,0 +1,411 @@
+.container {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pageTitle {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.pageSubtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.headerActions {
+    display: flex;
+    gap: 12px;
+}
+
+.exportPdf,
+.exportCsv {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.exportPdf:hover,
+.exportCsv:hover {
+    border-color: var(--accent-teal);
+    background-color: rgba(0, 201, 177, 0.05);
+}
+
+.statsRow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.kpiCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.kpiIcon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.kpiValue {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.kpiLabel {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.chartsRow {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 24px;
+}
+
+.chartCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.cardHeader h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 24px;
+}
+
+/* Pure CSS Bar Chart */
+.barChartContainer {
+    height: 240px;
+    display: flex;
+    align-items: flex-end;
+    padding-top: 40px;
+}
+
+.barGrid {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: flex-end;
+    height: 100%;
+}
+
+.barGroup {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+}
+
+.barWrapper {
+    flex: 1;
+    width: 40px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+}
+
+.bar {
+    width: 100%;
+    background: linear-gradient(to top, var(--accent-teal), #2DD4BF);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 12px rgba(0, 201, 177, 0.2);
+}
+
+.barValue {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.barLabel {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Pure CSS Donut Chart */
+.donutChartSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.donutWrapper {
+    position: relative;
+    width: 180px;
+    height: 180px;
+}
+
+.donut {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donutHole {
+    width: 70%;
+    height: 70%;
+    background-color: var(--bg-card);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.donutTotal {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.donutSub {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.donutLegend {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.legendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legendName {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+.legendValue {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Filters */
+.filterSection {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 20px 32px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filterGroup label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.filterGroup select {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    width: 180px;
+}
+
+.applyFilters {
+    background-color: var(--accent-teal);
+    color: var(--bg-dark);
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+/* Table */
+.tableCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+.tableHeader {
+    padding: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.table th {
+    padding: 16px 24px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-color);
+    user-select: none;
+}
+
+.table th[style*="cursor"] {
+    transition: color 0.2s;
+}
+
+.table th:hover {
+    color: var(--accent-teal);
+}
+
+.table td {
+    padding: 16px 24px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.idCell {
+    font-family: monospace;
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+
+.titleCell {
+    font-weight: 600;
+}
+
+.valueCell {
+    font-weight: 700;
+}
+
+.statusBadge {
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.rowBtn {
+    background: transparent;
+    color: var(--accent-teal);
+    font-weight: 700;
+}
+
+/* Audit Log */
+.auditLogCard {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+}
+
+.logList {
+    display: flex;
+    flex-direction: column;
+}
+
+.logItem {
+    display: grid;
+    grid-template-columns: 100px 140px 160px 140px 1fr;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+}
+
+.logItem:last-child {
+    border-bottom: none;
+}
+
+.logTime {
+    color: var(--text-muted);
+}
+
+.logUser {
+    font-weight: 700;
+}
+
+.logAction {
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+
+.logId {
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.logDetails {
+    color: var(--text-muted);
+}

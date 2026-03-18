@@ -1,0 +1,107 @@
+:root {
+  /* Core Palette */
+  --bg-dark: #0E1117;
+  --bg-card: #111827;
+  --bg-sidebar: #0D1425;
+  --bg-input: #1F2937;
+
+  --accent-teal: #00C9B1;
+  --accent-teal-soft: rgba(0, 201, 177, 0.1);
+  --accent-blue: #3B82F6;
+  --accent-orange: #F59E0B;
+  --accent-red: #EF4444;
+
+  /* Text Colors */
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+
+  /* Borders & Shadows */
+  --border-color: #1F2937;
+  --border-hover: #374151;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Spacing & Radius */
+  --spacing-unit: 8px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --sidebar-width: 280px;
+  --header-height: 64px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Common button styles */
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+/* Typography Utilities */
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-teal), #2DD4BF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
