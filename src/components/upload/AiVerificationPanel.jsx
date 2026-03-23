@@ -72,7 +72,7 @@ const AiVerificationPanel = ({ data }) => {
                                 }}
                             ></div>
                         </div>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Compliance Score</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>Compliance Score</span>
                     </div>
                 )}
             </div>

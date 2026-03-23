@@ -85,6 +85,22 @@
     z-index: 1;
 }
 
+.kpiInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpiValue {
+    font-size: 32px;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.kpiLabel {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
 .donutTotal {
     font-size: 20px;
     font-weight: 800;
@@ -771,8 +787,8 @@
 
 /* Collapsible Card Styles */
 .collapsibleCard {
-    background-color: #161D2A;
-    border: 1px solid #1E2D3D;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
     margin-top: 8px;

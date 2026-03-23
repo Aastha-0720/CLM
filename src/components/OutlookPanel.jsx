@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './OutlookPanel.module.css';
+import logo from '../assets/Artboard 1 copy 15.svg';
 import UploadContract from './UploadContract';
 import CAS from './CAS';
 import DOAApprovals from './DOAApprovals';
 import Reports from './Reports';
 import Dashboard from './Dashboard';
 import Reviews from './Reviews';
+import Settings from './Settings';
 import { contractService } from '../services/contractService';
 
-const OutlookPanel = ({ user, onLogout }) => {
+const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [activeNav, setActiveNav] = useState('Dashboard');
 
@@ -43,11 +45,11 @@ const OutlookPanel = ({ user, onLogout }) => {
             case 'Finance':
             case 'Compliance':
             case 'Procurement':
-                return allNavItems.filter(item => ['Dashboard', 'Reviews', 'Reports'].includes(item.name));
+                return allNavItems.filter(item => ['Dashboard', 'Reviews', 'Reports', 'Settings'].includes(item.name));
             case 'Sales':
-                return allNavItems.filter(item => ['Dashboard'].includes(item.name));
+                return allNavItems.filter(item => ['Dashboard', 'Settings'].includes(item.name));
             case 'Manager':
-                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports'].includes(item.name));
+                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports', 'Settings'].includes(item.name));
             case 'CEO':
                 return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports', 'Settings'].includes(item.name));
             case 'Admin':
@@ -126,6 +128,15 @@ const OutlookPanel = ({ user, onLogout }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const handleClearNotifications = async () => {
+        try {
+            await fetch('/api/admin/clear-notifications', { method: 'DELETE' });
+            setNotifs([]);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const openContractDetail = (contract) => {
         setSearchModalContract(contract);
         setSearchResults([]);
@@ -145,14 +156,13 @@ const OutlookPanel = ({ user, onLogout }) => {
         <div className={styles.container}>
             {/* Sidebar Navigation */}
             <aside className={styles.sidebar}>
-                <div className={styles.logoContainer}>
-                    <div className={styles.logoIcon}>
-                        <span className={styles.logoSymbol}>A</span>
-                    </div>
-                    <div className={styles.logoTextWrapper}>
-                        <span className={styles.logoBrand}>Infinia</span>
-                        <span className={styles.logoSub}>CLM System</span>
-                    </div>
+                <div className={styles.logoContainer} style={{ height: '80px', padding: '0 24px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+                    <img src={logo} alt="Infinia Logo" style={{
+                        width: '160px',
+                        height: 'auto',
+                        filter: theme === 'light' ? 'brightness(0)' : 'brightness(1)',
+                        transition: 'filter 0.3s'
+                    }} />
                 </div>
 
                 <nav className={styles.nav}>
@@ -230,6 +240,25 @@ const OutlookPanel = ({ user, onLogout }) => {
                             <span className={styles.time}>{formatTime(time)}</span>
                             <span className={styles.date}>{formatDate(time)}</span>
                         </div>
+                        
+                        <button
+                            onClick={onToggleTheme}
+                            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                cursor: 'pointer',
+                                color: 'var(--text-secondary)',
+                                fontSize: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {theme === 'dark' ? '☀️' : '🌙'}
+                        </button>
 
                         <div className={styles.notifTrigger} ref={notifRef} onClick={() => setShowNotifs(!showNotifs)}>
                             <span className={styles.notifIcon}>🔔</span>
@@ -238,8 +267,24 @@ const OutlookPanel = ({ user, onLogout }) => {
                             )}
                             {showNotifs && (
                                 <div className={styles.notifDropdown} onClick={(e) => e.stopPropagation()}>
-                                    <div className={styles.notifHeader}>
-                                        Notifications ({notifs.length})
+                                    <div className={styles.notifHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>Notifications ({notifs.length})</span>
+                                        {notifs.length > 0 && (
+                                            <button 
+                                                onClick={handleClearNotifications}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', padding: '4px' }}
+                                                title="Clear All Notifications"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                  <polyline points="3 6 5 6 21 6"/>
+                                                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                                  <path d="M10 11v6"/>
+                                                  <path d="M14 11v6"/>
+                                                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                                                </svg>
+                                                Clear All
+                                            </button>
+                                        )}
                                     </div>
                                     <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
                                         {notifs.length > 0 ? notifs.map(n => {
@@ -292,7 +337,7 @@ const OutlookPanel = ({ user, onLogout }) => {
                         </div>
                     ) : activeNav === 'DOA Approvals' ? (
                         <div className={styles.fullWidthSection}>
-                            <DOAApprovals />
+                            <DOAApprovals user={user} onNavigate={setActiveNav} />
                         </div>
                     ) : activeNav === 'Reviews' ? (
                         <div className={styles.fullWidthSection}>
@@ -305,6 +350,10 @@ const OutlookPanel = ({ user, onLogout }) => {
                     ) : activeNav === 'Dashboard' ? (
                         <div className={styles.fullWidthSection}>
                             <Dashboard user={user} />
+                        </div>
+                    ) : activeNav === 'Settings' ? (
+                        <div className={styles.fullWidthSection}>
+                            <Settings user={user} />
                         </div>
                     ) : (
                         <div className={styles.placeholder}>

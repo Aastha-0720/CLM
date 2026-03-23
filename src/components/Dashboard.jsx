@@ -10,11 +10,40 @@ const kpiData = [
     { id: 'pipeline', label: 'Pipeline Deal Value', value: '$4.2M', icon: '💰', color: '#10B981', trend: '+18%' },
 ];
 
-const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
+const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const [stats, setStats] = React.useState(null);
     const [contracts, setContracts] = React.useState([]);
     const [selectedRecentContract, setSelectedRecentContract] = React.useState(null);
     const [isRecentExpanded, setIsRecentExpanded] = React.useState(false);
+    const [toast, setToast] = React.useState('');
+    const [deleteConfirm, setDeleteConfirm] = React.useState(null); // stores contract id to delete
+
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+    };
+
+    const handleDeleteClick = (id) => {
+        setDeleteConfirm(id);
+    };
+
+    const handleDeleteConfirm = async () => {
+        try {
+            const response = await fetch(`/api/contracts/${deleteConfirm}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                setContracts(prev => prev.filter(c => c.id !== deleteConfirm));
+                setSelectedRecentContract(null);
+                showToast("Contract deleted successfully");
+                setDeleteConfirm(null);
+            } else {
+                console.error('Delete failed:', response.status);
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+        }
+    };
 
     const loadData = async () => {
         const { dashboardService } = await import('../services/dashboardService');
@@ -37,31 +66,38 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
         await loadData();
     };
 
-    // Calculate dynamic KPIs from fetched contracts
+    // Enhance KPIs using real data
     const awaitingSignatureCount = contracts.filter(c => c.stage === 'CAS Generated').length;
     const expiringSoonCount = contracts.filter(c => c.stage === 'DOA Approval').length;
+    const underReviewCount = contracts.filter(c => c.stage === 'Under Review').length;
+    const pendingApprovalCount = contracts.filter(c => c.status === 'Pending').length;
 
-    // Enhanced KPIs for Phase 6
     const enhancedKpis = [
-        { id: 'total', label: 'Total Contracts', value: stats?.activeContracts || '1,284', icon: '📄', color: '#00C9B1', trend: '+12%' },
-        { id: 'review', label: 'Under Review', value: stats?.underReview || '42', icon: '🔍', color: '#3B82F6', trend: '-2' },
-        { id: 'pending', label: 'Pending Approvals', value: stats?.pendingApprovals || '24', icon: '⏳', color: '#F59E0B', trend: '+5' },
-        { id: 'signatures', label: 'Awaiting Signature', value: awaitingSignatureCount.toString(), icon: '🖋️', color: '#8B5CF6', trend: '+3' },
-        { id: 'expiring', label: 'Expiring Soon', value: expiringSoonCount.toString(), icon: '⚠️', color: '#EF4444', trend: 'Critical' }
+        { id: 'total', label: 'Total Contracts', value: contracts.length, icon: '📄', color: '#00C9B1' },
+        { id: 'review', label: 'Under Review', value: underReviewCount, icon: '🔍', color: '#3B82F6' },
+        { id: 'pending', label: 'Pending Approvals', value: pendingApprovalCount, icon: '⏳', color: '#F59E0B' },
+        { id: 'signatures', label: 'Awaiting Signature', value: awaitingSignatureCount, icon: '🖋️', color: '#8B5CF6' },
+        { id: 'expiring', label: 'Expiring Soon', value: expiringSoonCount, icon: '⚠️', color: '#EF4444' }
     ];
 
-    // Mock Pie Chart Data using conic-gradient
+    // Donut Chart Real Data
+    const activeCount = contracts.filter(c => c.status === 'Approved').length;
+    const draftCount = contracts.filter(c => c.status === 'Draft').length;
+    const expiredCount = contracts.filter(c => c.stage === 'Rejected').length; // Prompt specified 'stage === Rejected'
+
     const statusData = [
-        { label: 'Active', value: 65, color: '#00C9B1' },
-        { label: 'Review', value: 20, color: '#3B82F6' },
-        { label: 'Draft', value: 10, color: '#8B5CF6' },
-        { label: 'Expired', value: 5, color: '#EF4444' }
+        { label: 'Active', value: activeCount, color: '#00C9B1' },
+        { label: 'Review', value: underReviewCount, color: '#3B82F6' },
+        { label: 'Draft', value: draftCount, color: '#8B5CF6' },
+        { label: 'Expired', value: expiredCount, color: '#EF4444' }
     ];
 
+    const totalDonut = Math.max(activeCount + underReviewCount + draftCount + expiredCount, 1);
     let cum = 0;
     const pieGradient = statusData.map(d => {
         const start = cum;
-        cum += d.value;
+        const pct = (d.value / totalDonut) * 100;
+        cum += pct;
         return `${d.color} ${start}% ${cum}%`;
     }).join(', ');
 
@@ -76,6 +112,16 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
 
     return (
         <div className={styles.adminContainer}>
+            {toast && (
+                <div style={{
+                    position: 'fixed', bottom: '20px', right: '20px',
+                    backgroundColor: '#10B981', color: 'white',
+                    padding: '12px 24px', borderRadius: '8px', zIndex: 9999,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: '500'
+                }}>
+                    {toast}
+                </div>
+            )}
             <div className={styles.kpiGrid}>
                 {enhancedKpis.map((kpi) => (
                     <div
@@ -86,10 +132,9 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                     >
                         <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
-                            <span className={styles.kpiValue}>{kpi.value}</span>
-                            <span className={styles.kpiLabel}>{kpi.label}</span>
+                            <div className={styles.kpiValue}>{kpi.value}</div>
+                            <div className={styles.kpiLabel}>{kpi.label}</div>
                         </div>
-                        <span className={styles.kpiTrend} style={{ color: kpi.color === '#EF4444' ? '#EF4444' : '#10B981' }}>{kpi.trend}</span>
                     </div>
                 ))}
             </div>
@@ -98,7 +143,22 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
             {selectedRecentContract && (
                 <div className={styles.modalOverlay} onClick={() => setSelectedRecentContract(null)}>
                     <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.closeModalBtn} onClick={() => setSelectedRecentContract(null)}>×</button>
+                        <div style={{ position: 'absolute', top: '24px', right: '24px', display: 'flex', gap: '12px', alignItems: 'center', zIndex: 10 }}>
+                            <button 
+                                onClick={() => handleDeleteClick(selectedRecentContract.id)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', padding: '4px' }}
+                                title="Delete Contract"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                  <path d="M10 11v6"/>
+                                  <path d="M14 11v6"/>
+                                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                                </svg>
+                            </button>
+                            <button className={styles.closeModalBtn} style={{ position: 'static' }} onClick={() => setSelectedRecentContract(null)}>×</button>
+                        </div>
 
                         <h3 className={styles.modalTitle}>{selectedRecentContract.title}</h3>
                         <p className={styles.modalCompany}>{selectedRecentContract.company}</p>
@@ -180,7 +240,62 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                 </div>
             )}
 
-            {renderKpiDetail()}
+            {/* KPI Detail Panel */}
+            {activeKpi && (
+                <div className={styles.kpiDetailTable}>
+                    <div className={styles.detailHeader}>
+                        <h4>Viewing: {activeKpi.label}</h4>
+                        <button onClick={() => setActiveKpi(null)}>Close (X)</button>
+                    </div>
+                    <table className={styles.table}>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Company</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                                <th>Stage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(() => {
+                                let filtered = [];
+                                switch (activeKpi.id) {
+                                    case 'total': filtered = contracts; break;
+                                    case 'review': filtered = contracts.filter(c => c.stage === 'Under Review'); break;
+                                    case 'pending': filtered = contracts.filter(c => c.status === 'Pending'); break;
+                                    case 'signatures': filtered = contracts.filter(c => c.stage === 'CAS Generated'); break;
+                                    case 'expiring': filtered = contracts.filter(c => c.stage === 'DOA Approval'); break;
+                                    default: filtered = contracts;
+                                }
+                                return filtered.length > 0 ? (
+                                    filtered.map(c => (
+                                        <tr key={c.id}>
+                                            <td className={styles.idCell}>{String(c.id).slice(-8)}</td>
+                                            <td className={styles.titleCell}>{c.title}</td>
+                                            <td>{c.company}</td>
+                                            <td>${(c.value || 0).toLocaleString()}</td>
+                                            <td>
+                                                <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                    {c.status}
+                                                </span>
+                                            </td>
+                                            <td>{c.stage}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                                            No contracts found for {activeKpi.label}.
+                                        </td>
+                                    </tr>
+                                );
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             <div className={styles.chartsRow}>
                 <div className={styles.chartCard}>
@@ -188,7 +303,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                     <div className={styles.pieContainer}>
                         <div className={styles.donut} style={{ background: `conic-gradient(${pieGradient})` }}>
                             <div className={styles.donutHole}>
-                                <span className={styles.donutTotal}>{stats?.activeContracts || '1,284'}</span>
+                                <span className={styles.donutTotal}>{contracts.length}</span>
                                 <span className={styles.donutSub}>Contracts</span>
                             </div>
                         </div>
@@ -235,7 +350,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                             <span>Recent High-Priority Contracts</span>
                         </div>
                         <div className={styles.headerRight}>
-                            <span className={styles.countBadge}>{contracts.slice(0, 6).length} contracts</span>
+                            <span className={styles.countBadge}>{contracts.length} contracts</span>
                             <span className={styles.chevron}>{isRecentExpanded ? '▲' : '▼'}</span>
                         </div>
                     </div>
@@ -244,7 +359,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                         <div className={styles.collapsibleBody}>
                             {contracts.length > 0 ? (
                                 <div className={styles.recentCardsGrid} style={{ marginTop: 0 }}>
-                                    {contracts.slice(0, 6).map((item) => (
+                                    {contracts.map((item) => (
                                         <div key={item.id} className={styles.recentCard}>
                                             <div>
                                                 <div className={styles.recentCardTitle}>{item.title}</div>
@@ -281,13 +396,61 @@ const AdminDashboard = ({ activeKpi, setActiveKpi, renderKpiDetail }) => {
                                 </div>
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                    No recent high-priority contracts found.
+                                    No contracts found. Upload contracts to get started.
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {deleteConfirm && (
+                <div style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '12px',
+                        padding: '28px 32px',
+                        width: '400px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ fontSize: '36px', marginBottom: '12px' }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                <path d="M10 11v6"/><path d="M14 11v6"/>
+                                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                            </svg>
+                        </div>
+                        <h3 style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700', marginBottom: '8px' }}>
+                            Delete Contract
+                        </h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px', lineHeight: '1.6' }}>
+                            Are you sure you want to delete this contract?<br/>
+                            This action cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                style={{ padding: '9px 24px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteConfirm}
+                                style={{ padding: '9px 24px', borderRadius: '8px', border: 'none', background: '#EF4444', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -857,82 +1020,13 @@ const Dashboard = ({ user }) => {
         }
     };
 
-    const renderKpiDetail = () => {
-        if (!activeKpi) return null;
-
-        let kpiFilteredContracts = [];
-
-        switch (activeKpi.id) {
-            case 'total':
-                kpiFilteredContracts = contracts;
-                break;
-            case 'review':
-                kpiFilteredContracts = contracts.filter(c => c.stage === 'Under Review');
-                break;
-            case 'pending':
-                kpiFilteredContracts = contracts.filter(c => c.status === 'Pending');
-                break;
-            case 'signatures':
-                kpiFilteredContracts = contracts.filter(c => c.stage === 'CAS Generated');
-                break;
-            case 'expiring':
-                kpiFilteredContracts = contracts.filter(c => c.stage === 'DOA Approval');
-                break;
-            default:
-                kpiFilteredContracts = contracts;
-        }
-
-        return (
-            <div className={styles.kpiDetailTable}>
-                <div className={styles.detailHeader}>
-                    <h4>Viewing: {activeKpi.label}</h4>
-                    <button onClick={() => setActiveKpi(null)}>✕ Close</button>
-                </div>
-                <table className={styles.table}>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Title</th>
-                            <th>Company</th>
-                            <th>Value</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {kpiFilteredContracts.length > 0 ? (
-                            kpiFilteredContracts.map(c => (
-                                <tr key={c.id}>
-                                    <td className={styles.idCell}>{c.id.substring(c.id.length - 8)}</td>
-                                    <td className={styles.titleCell}>{c.title}</td>
-                                    <td>{c.company}</td>
-                                    <td>${(c.value || 0).toLocaleString()}</td>
-                                    <td>
-                                        <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
-                                            {c.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
-                                    No contracts found for {activeKpi.label}.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        );
-    };
-
     return (
         <div className={styles.container}>
             <header className={styles.dashboardHeader}>
                 <h2>{getDashboardHeader()}</h2>
             </header>
 
-            {user?.role === 'Admin' && <AdminDashboard activeKpi={activeKpi} setActiveKpi={setActiveKpi} renderKpiDetail={renderKpiDetail} />}
+            {user?.role === 'Admin' && <AdminDashboard activeKpi={activeKpi} setActiveKpi={setActiveKpi} />}
             {user?.role === 'Sales' && <SalesDashboard />}
             {user?.role === 'Legal' && <LegalDashboard />}
             {user?.role === 'Finance' && <FinanceDashboard />}

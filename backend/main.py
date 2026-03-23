@@ -16,9 +16,25 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+allow_headers=["*"],
 )
+
+DEMO_USERS = [
+    {"name": "Admin User", "email": "admin@apeiro.com", "role": "Admin", "password": "Admin@2026", "status": "Active"},
+    {"name": "Legal Counsel", "email": "legal@apeiro.com", "role": "Legal", "password": "Legal@2026", "status": "Active"},
+    {"name": "Finance Controller", "email": "finance@apeiro.com", "role": "Finance", "password": "Finance@2026", "status": "Active"},
+    {"name": "Compliance Officer", "email": "compliance@apeiro.com", "role": "Compliance", "password": "Comply@2026", "status": "Active"},
+    {"name": "Procurement Lead", "email": "procurement@apeiro.com", "role": "Procurement", "password": "Procure@2026", "status": "Active"},
+    {"name": "Sales Manager", "email": "sales@apeiro.com", "role": "Sales", "password": "Sales@2026", "status": "Active"},
+    {"name": "Operations Manager", "email": "manager@apeiro.com", "role": "Manager", "password": "Manager@2026", "status": "Active"},
+    {"name": "Chief Executive Officer", "email": "ceo@apeiro.com", "role": "CEO", "password": "CEO@2026", "status": "Active"},
+]
+
+@app.on_event("startup")
+async def seed_users():
+    count = await db.users.count_documents({})
+    if count == 0:
+        await db.users.insert_many(DEMO_USERS)
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
@@ -51,10 +67,12 @@ async def upload_contracts(file: UploadFile = File(...)):
         if not email:
             continue
             
-        company_name = await services.extract_company_from_email_mock(email)
+        company_name = str(row.get('company', '')).strip()
+        if not company_name or company_name == 'nan':
+            company_name = await services.extract_company_from_email_mock(email)
         title = row.get('title', f"{company_name} Agreement")
         value = float(row.get('value', 0))
-        department = str(row.get('department', 'General'))
+        department = str(row.get('department', 'Legal'))
         
         contract = Contract(
             title=title,
@@ -84,6 +102,34 @@ async def get_contracts(stage: str = None):
         del c["_id"]
         
     return contracts
+
+@app.post("/api/contracts/create")
+async def create_single_contract(data: dict = Body(...)):
+    contract = Contract(
+        title=data.get("title", "Untitled Contract"),
+        company=data.get("company", "Unknown"),
+        value=float(data.get("value", 0)),
+        department=data.get("department", "Legal"),
+        stage="Under Review",
+        status="Pending",
+        submittedBy=data.get("submittedBy", "Admin")
+    )
+    result = await db.contracts.insert_one(
+        contract.model_dump(by_alias=True, exclude_none=True)
+    )
+    return {
+        "message": "Contract created successfully",
+        "id": str(result.inserted_id)
+    }
+
+@app.delete("/api/contracts/{contract_id}")
+async def delete_contract(contract_id: str):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(400, "Invalid contract ID")
+    result = await db.contracts.delete_one({"_id": ObjectId(contract_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Contract not found")
+    return {"message": "Contract deleted successfully"}
 
 @app.post("/api/contracts/{contract_id}/review")
 async def submit_review(contract_id: str, department: str = Body(...), status: str = Body(...), comments: str = Body(""), reviewer: str = Body("Admin")):
@@ -152,7 +198,7 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
         },
         "Procurement": {
             "for_role": "Admin",
-            "message": "All reviews complete for '{title}'. CAS has been auto-generated.",
+            "message": "All reviews complete for {title}. CAS generated!",
             "action": "Go to CAS"
         }
     }
@@ -214,6 +260,15 @@ async def get_cas():
         del c["_id"]
     return cas_records
 
+@app.delete("/api/cas/{cas_id}")
+async def delete_cas_record(cas_id: str):
+    if not ObjectId.is_valid(cas_id):
+        raise HTTPException(400, "Invalid CAS ID")
+    result = await db.cas.delete_one({"_id": ObjectId(cas_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "CAS not found")
+    return {"message": "CAS deleted successfully"}
+
 @app.post("/api/cas/{cas_id}/approve")
 async def approve_cas(cas_id: str, action: str = Body(...)):
     # Action can be Approve or Reject
@@ -240,6 +295,38 @@ async def approve_cas(cas_id: str, action: str = Body(...)):
         )
         
     return {"message": f"CAS {new_status}"}
+
+@app.post("/api/cas/{cas_id}/approve-step")
+async def approve_cas_step(cas_id: str, data: dict = Body(...)):
+    step_index = data.get("stepIndex")
+    approved_by = data.get("approvedBy", "Admin")
+    timestamp = datetime.utcnow().isoformat()
+
+    if not ObjectId.is_valid(cas_id):
+        raise HTTPException(400, "Invalid CAS ID")
+
+    await db.cas.update_one(
+        {"_id": ObjectId(cas_id)},
+        {"$set": {
+            f"approvalChain.{step_index}.status": "Approved",
+            f"approvalChain.{step_index}.approvedBy": approved_by,
+            f"approvalChain.{step_index}.timestamp": timestamp
+        }}
+    )
+
+    cas = await db.cas.find_one({"_id": ObjectId(cas_id)})
+    chain = cas.get("approvalChain", [])
+    if all(s.get("status") == "Approved" for s in chain):
+        await db.cas.update_one(
+            {"_id": ObjectId(cas_id)},
+            {"$set": {"status": "Approved"}}
+        )
+        if cas.get("contractId") and ObjectId.is_valid(cas.get("contractId")):
+            await db.contracts.update_one(
+                {"_id": ObjectId(cas.get("contractId"))},
+                {"$set": {"status": "Approved", "stage": "Approved"}}
+            )
+    return {"message": "Step approved successfully"}
 
 @app.post("/api/contracts/doa/{contract_id}/{action}")
 async def doa_approval(contract_id: str, action: str):
@@ -288,3 +375,84 @@ async def mark_notification_read(notif_id: str, role: Optional[str] = Query(None
         n["id"] = str(n["_id"])
         del n["_id"]
     return notifs
+
+# ─── Admin Endpoints ───
+
+@app.delete("/api/admin/clear-all")
+async def clear_all():
+    await db.contracts.delete_many({})
+    await db.cas.delete_many({})
+    await db.notifications.delete_many({})
+    return {"message": "All data cleared"}
+
+@app.delete("/api/admin/clear-notifications")
+async def clear_notifs():
+    await db.notifications.delete_many({})
+    return {"message": "Notifications cleared"}
+
+@app.delete("/api/admin/clear-cas")
+async def clear_cas():
+    await db.cas.delete_many({})
+    return {"message": "CAS records cleared"}
+
+@app.put("/api/admin/doa-thresholds")
+async def update_doa(thresholds: dict = Body(...)):
+    await db.settings.update_one(
+        {"key": "doa_thresholds"},
+        {"$set": {"value": thresholds}},
+        upsert=True
+    )
+    return {"message": "DOA thresholds updated"}
+
+@app.get("/api/admin/users")
+async def get_users():
+    users = await db.users.find({}).to_list(100)
+    for u in users:
+        u["id"] = str(u["_id"])
+        del u["_id"]
+        u.pop("password", None)  # Never send password
+    return users
+
+@app.post("/api/admin/users")
+async def add_user(user: dict = Body(...)):
+    existing = await db.users.find_one({"email": user.get("email")})
+    if existing:
+        raise HTTPException(400, "User already exists")
+    user["status"] = "Active"
+    await db.users.insert_one(user)
+    return {"message": "User added successfully"}
+
+@app.put("/api/admin/users/{user_id}/role")
+async def update_role(user_id: str, data: dict = Body(...)):
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"role": data.get("role")}}
+    )
+    return {"message": "Role updated"}
+
+@app.put("/api/admin/users/{user_id}/status")
+async def update_status(user_id: str, data: dict = Body(...)):
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"status": data.get("status")}}
+    )
+    return {"message": "Status updated"}
+
+@app.delete("/api/admin/users/{user_id}")
+async def delete_user(user_id: str):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(400, "Invalid user ID")
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "User not found")
+    return {"message": "User deleted successfully"}
+
+@app.get("/api/admin/users-with-auth")
+async def get_users_auth():
+    # Only for login validation - includes password
+    users = await db.users.find({}).to_list(100)
+    for u in users:
+        u["id"] = str(u["_id"])
+        del u["_id"]
+    return users
+

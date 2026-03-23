@@ -1,28 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Login.module.css';
+import logo from '../assets/Artboard 1 copy 15.svg';
 
-const DEMO_USERS = [
-    { email: 'admin@apeiro.com', password: 'Admin@2026', name: 'Admin User', role: 'Admin' },
-    { email: 'legal@apeiro.com', password: 'Legal@2026', name: 'Legal Counsel', role: 'Legal' },
-    { email: 'finance@apeiro.com', password: 'Finance@2026', name: 'Finance Controller', role: 'Finance' },
-    { email: 'compliance@apeiro.com', password: 'Comply@2026', name: 'Compliance Officer', role: 'Compliance' },
-    { email: 'procurement@apeiro.com', password: 'Procure@2026', name: 'Procurement Lead', role: 'Procurement' },
-    { email: 'sales@apeiro.com', password: 'Sales@2026', name: 'Sales Manager', role: 'Sales' },
-    { email: 'manager@apeiro.com', password: 'Manager@2026', name: 'Operations Manager', role: 'Manager' },
-    { email: 'ceo@apeiro.com', password: 'CEO@2026', name: 'Chief Executive Officer', role: 'CEO' },
-];
+const EyeOpen = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round"
+    strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const EyeOff = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round"
+    strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20
+             c-7 0-11-8-11-8
+             a18.45 18.45 0 0 1 5.06-5.94
+             M9.9 4.24A9.12 9.12 0 0 1 12 4
+             c7 0 11 8 11 8
+             a18.5 18.5 0 0 1-2.16 3.19"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
 
 const Login = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [users, setUsers] = useState([]);
+
+    useEffect(() => {
+        fetch('/api/admin/users-with-auth')
+            .then(r => r.json())
+            .then(data => setUsers(data))
+            .catch(err => console.error('Failed to fetch users', err));
+    }, []);
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
 
-        const user = DEMO_USERS.find(u => u.email === email && u.password === password);
+        const user = users.find(u => u.email === email && u.password === password);
 
         if (user) {
             onLogin(user);
@@ -35,13 +58,12 @@ const Login = ({ onLogin }) => {
         <div className={styles.loginContainer}>
             <div className={styles.loginCard}>
                 <div className={styles.logoContainer}>
-                    <div className={styles.logoIcon}>A</div>
-                    <span className={styles.logoText}>Apeiro CLM</span>
+                    <img src={logo} alt="Infinia Logo" style={{ width: '200px', height: 'auto' }} />
                 </div>
 
                 <div className={styles.header}>
                     <h1>Welcome Back</h1>
-                    <p>Sign in to CLM Platform</p>
+                    <p>Sign in to your CLM Platform</p>
                 </div>
 
                 <form className={styles.form} onSubmit={handleSubmit}>
@@ -72,8 +94,22 @@ const Login = ({ onLogin }) => {
                                 type="button"
                                 className={styles.togglePassword}
                                 onClick={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '4px'
+                                }}
                             >
-                                {showPassword ? '👁️' : '👁️‍🗨️'}
+                                {showPassword ? <EyeOff /> : <EyeOpen />}
                             </button>
                         </div>
                     </div>

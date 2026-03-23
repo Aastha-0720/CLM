@@ -1,7 +1,7 @@
 .container {
     padding: 2rem;
     height: 100%;
-    background-color: var(--bg-dark);
+    background-color: var(--bg-card);
     overflow-y: auto;
 }
 
@@ -233,6 +233,7 @@
 
 /* Form Styling */
 .formPanel {
+    background-color: var(--bg-card);
     padding: 24px;
     height: 100%;
     overflow-y: auto;
@@ -334,6 +335,7 @@
 }
 
 .uploadBox {
+    background-color: var(--bg-input);
     border: 2px dashed var(--border-color);
     border-radius: 16px;
     padding: 40px;

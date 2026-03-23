@@ -39,12 +39,32 @@ const EmailBucketTab = ({ onDataChange }) => {
         }
     };
 
-    const handleGenerateContract = () => {
-        alert('Contract generated successfully and added to the pipeline!');
-        // Reset state
-        setExtractedData(null);
-        setRawContent('');
-        setFile(null);
+    const handleGenerateContract = async () => {
+        try {
+            const valueNum = parseFloat(
+                (extractedData.contractValue || '0')
+                .replace(/[^0-9.]/g, '')
+            ) || 0;
+
+            const response = await fetch('/api/contracts/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: extractedData.subject || 'Contract from Email',
+                    company: extractedData.counterpartyName || 'Unknown',
+                    value: valueNum,
+                    department: 'Legal',
+                    submittedBy: 'Admin'
+                })
+            });
+            if (!response.ok) throw new Error('Failed');
+            setExtractedData(null);
+            setRawContent('');
+            setFile(null);
+            alert('Contract created and sent for Legal Review!');
+        } catch (err) {
+            alert('Failed to create contract. Please try again.');
+        }
     };
 
     const handleDataChange = (field, value) => {
@@ -83,7 +103,7 @@ const EmailBucketTab = ({ onDataChange }) => {
                             </div>
                         </div>
 
-                        <div style={{ textAlign: 'center', color: '#64748b', margin: '1rem 0', fontWeight: 'bold' }}>OR</div>
+                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', margin: '1rem 0', fontWeight: 'bold' }}>OR</div>
 
                         <div className={styles.formGroup}>
                             <label>Paste Raw Email Content</label>

@@ -101,7 +101,32 @@ const CreateContractTab = ({ onDataChange }) => {
 
                 <div className={styles.formFooter}>
                     <button className={styles.cancelBtn} onClick={() => setGeneratedDraft('')}>Edit Details</button>
-                    <button className={styles.submitBtn} onClick={() => alert('Contract finalized and sent for approval!')}>
+                    <button className={styles.submitBtn}
+                        onClick={async () => {
+                            try {
+                                const valueNum = parseFloat(
+                                    (formData.contractValue || '0')
+                                    .replace(/[^0-9.]/g, '')
+                                ) || 0;
+
+                                const response = await fetch('/api/contracts/create', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        title: formData.title || 'New Contract',
+                                        company: formData.counterpartyName || 'Unknown',
+                                        value: valueNum,
+                                        department: formData.businessUnit || 'Legal',
+                                        submittedBy: 'Admin'
+                                    })
+                                });
+                                if (!response.ok) throw new Error('Failed');
+                                handleReset();
+                                alert('Contract submitted for Legal Review!');
+                            } catch (err) {
+                                alert('Failed to submit contract. Please try again.');
+                            }
+                        }}>
                         Finalize & Initialize Contract
                     </button>
                 </div>

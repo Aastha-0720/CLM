@@ -37,7 +37,7 @@
 
 /* Contract Card */
 .contractCard {
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--bg-card);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
@@ -231,7 +231,7 @@
 
 /* Modal Enhancements */
 .reviewModal {
-    background: rgba(13, 17, 23, 0.95);
+    background: var(--bg-card);
     backdrop-filter: blur(20px);
     width: 600px;
     border-radius: 20px;
@@ -274,7 +274,7 @@
 }
 
 .splitModalContainer {
-    background: #0E1117;
+    background: var(--bg-dark);
     width: 100%;
     max-width: 1400px;
     height: 100%;
@@ -288,7 +288,7 @@
 
 .documentPane {
     flex: 6;
-    background: #161D2A;
+    background: var(--bg-card);
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
@@ -329,7 +329,7 @@
     flex: 4;
     display: flex;
     flex-direction: column;
-    background: #0E1117;
+    background: var(--bg-dark);
     overflow-y: auto;
 }
 
@@ -529,7 +529,7 @@
     flex: 3;
     display: flex;
     flex-direction: column;
-    background: #0d1117;
+    background: var(--bg-dark);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     height: 100%;
     animation: slideIn 0.3s cubic-bezier(0, 0, 0.2, 1);
@@ -671,7 +671,7 @@
 
 .miniTextarea {
     width: 100%;
-    background: #161D2A;
+    background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 10px;
@@ -784,7 +784,7 @@
 .suggestInputArea {
     width: 100%;
     min-height: 100px;
-    background: #161D2A;
+    background: var(--bg-card);
     border: 1px solid var(--accent-teal);
     border-radius: 8px;
     padding: 12px;
@@ -917,7 +917,7 @@
 
 .riskNotesArea {
     width: 100%;
-    background: #161D2A;
+    background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 8px;
@@ -1152,7 +1152,7 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid #64748b;
+    border: 2px solid var(--text-muted);
     transition: all 0.3s ease;
 }
 
@@ -1170,7 +1170,7 @@
 
 .wdLocked {
     background: transparent;
-    border-color: #64748b;
+    border-color: var(--text-muted);
 }
 
 .workflowLabel {
@@ -1183,7 +1183,7 @@
 
 .workflowLine {
     height: 2px;
-    background: #334155;
+    background: var(--border-color);
     flex: 2;
     margin-bottom: 20px;
     /* Offset for label height */
@@ -1236,7 +1236,7 @@
 }
 
 .gateModal {
-    background: #0f172a;
+    background: var(--bg-card);
     width: 100%;
     max-width: 400px;
     padding: 32px;

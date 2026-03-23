@@ -101,7 +101,7 @@ const FileUploadTab = ({ onDataChange }) => {
                             ) : (
                                 <>
                                     <strong>Click to upload</strong> or drag and drop
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>PDF or DOCX documents allowed</p>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>PDF or DOCX documents allowed</p>
                                 </>
                             )}
                         </div>
@@ -142,20 +142,20 @@ const FileUploadTab = ({ onDataChange }) => {
                     <div style={{ background: 'rgba(15, 23, 42, 0.3)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '2rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
                             <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counterparty</label>
+                                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counterparty</label>
                                 <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#fff' }}>{extractedData.counterparty}</div>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value</label>
+                                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value</label>
                                 <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#10b981' }}>{extractedData.contractValue}</div>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</label>
-                                <div style={{ color: '#e2e8f0' }}>{extractedData.duration}</div>
+                                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</label>
+                                <div style={{ color: 'var(--text-primary)' }}>{extractedData.duration}</div>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Dates</label>
-                                <div style={{ color: '#e2e8f0' }}>{extractedData.keyDates}</div>
+                                <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Dates</label>
+                                <div style={{ color: 'var(--text-primary)' }}>{extractedData.keyDates}</div>
                             </div>
                         </div>
                     </div>
@@ -174,7 +174,7 @@ const FileUploadTab = ({ onDataChange }) => {
                                 <tbody>
                                     {extractedData.clauses.map(clause => (
                                         <tr key={clause.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ padding: '12px', fontSize: '0.9rem', color: '#e2e8f0' }}>"{clause.text}"</td>
+                                            <td style={{ padding: '12px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>"{clause.text}"</td>
                                             <td style={{ padding: '12px' }}>
                                                 <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', background: 'rgba(37, 99, 235, 0.2)', color: '#60a5fa' }}>
                                                     {clause.type}
@@ -194,7 +194,34 @@ const FileUploadTab = ({ onDataChange }) => {
 
                     <div className={styles.formFooter}>
                         <button className={styles.cancelBtn} onClick={handleReset}>Upload Different File</button>
-                        <button className={styles.submitBtn} onClick={() => alert('Proceeding to Verification stage...')}>Proceed to Verification</button>
+                        <button className={styles.submitBtn}
+                            onClick={async () => {
+                                try {
+                                    const valueNum = parseFloat(
+                                        (extractedData.contractValue || '0')
+                                        .replace(/[^0-9.]/g, '')
+                                    ) || 0;
+
+                                    const response = await fetch('/api/contracts/create', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            title: file.name.replace(/\.(pdf|docx)$/i, ''),
+                                            company: extractedData.counterparty || 'Unknown',
+                                            value: valueNum,
+                                            department: 'Legal',
+                                            submittedBy: 'Admin'
+                                        })
+                                    });
+                                    if (!response.ok) throw new Error('Failed');
+                                    handleReset();
+                                    alert('Contract submitted for Legal Review!');
+                                } catch (err) {
+                                    alert('Failed to submit contract. Please try again.');
+                                }
+                            }}>
+                            Proceed to Verification
+                        </button>
                     </div>
                 </div>
             )}

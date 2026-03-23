@@ -14,6 +14,8 @@ const Reports = ({ user }) => {
     // Sorting
     const [sortKey, setSortKey] = useState('title');
     const [sortDir, setSortDir] = useState('asc');
+    const [logSortKey, setLogSortKey] = useState('date');
+    const [logSortDir, setLogSortDir] = useState('desc');
 
     useEffect(() => {
         const load = async () => {
@@ -78,6 +80,23 @@ const Reports = ({ user }) => {
         return acc;
     }, [contracts]);
 
+    const sortedLog = useMemo(() => {
+        const logs = contracts.slice(0, 10).map(c => ({
+            date: c.updatedAt || c.createdAt || '',
+            user: c.submittedBy || 'System',
+            action: c.status || c.stage || 'Draft',
+            id: c.id,
+            title: c.title || ''
+        }));
+        return logs.sort((a, b) => {
+            const va = a[logSortKey] ?? '';
+            const vb = b[logSortKey] ?? '';
+            return logSortDir === 'asc'
+                ? String(va).localeCompare(String(vb))
+                : String(vb).localeCompare(String(va));
+        });
+    }, [contracts, logSortKey, logSortDir]);
+
     // ──── Filtered & Sorted Contracts ────
     const filteredContracts = useMemo(() => {
         let result = [...contracts];
@@ -114,6 +133,20 @@ const Reports = ({ user }) => {
         return sortDir === 'asc' ? ' ↑' : ' ↓';
     };
 
+    const handleLogSort = (key) => {
+        if (logSortKey === key) {
+            setLogSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setLogSortKey(key);
+            setLogSortDir('asc');
+        }
+    };
+
+    const logSortIndicator = (key) => {
+        if (logSortKey !== key) return ' ↕';
+        return logSortDir === 'asc' ? ' ↑' : ' ↓';
+    };
+
     // ──── Export CSV ────
     const exportToCSV = () => {
         if (!filteredContracts.length) return;
@@ -121,7 +154,7 @@ const Reports = ({ user }) => {
         const rows = [headers.join(',')];
         filteredContracts.forEach(c => {
             rows.push([
-                c.id, `"${(c.title || '').replace(/"/g, '""')}"`, `"${(c.company || '').replace(/"/g, '""')}"`,
+                '#' + (c.id || '').slice(-8).toUpperCase(), `"${(c.title || '').replace(/"/g, '""')}"`, `"${(c.company || '').replace(/"/g, '""')}"`,
                 c.status || '', c.stage || '', c.department || '', c.value || 0,
                 c.priority || 'Medium', c.daysPending || 0, `"${(c.submittedBy || '').replace(/"/g, '""')}"`
             ].join(','));
@@ -139,7 +172,51 @@ const Reports = ({ user }) => {
 
     // ──── Export PDF (Mock) ────
     const exportToPDF = () => {
-        alert('PDF export would be generated here. In production, this would use a library like jsPDF or a server-side renderer.');
+        const rows = filteredContracts.map(c => `
+            <tr>
+                <td>#${(c.id||'').slice(-8).toUpperCase()}</td>
+                <td>${c.title||''}</td>
+                <td>${c.company||''}</td>
+                <td>${c.status||'Draft'}</td>
+                <td>${c.department||''}</td>
+                <td>$${Number(c.value||0).toLocaleString()}</td>
+                <td>${c.priority||'Medium'}</td>
+            </tr>`).join('');
+
+        const html = `<!DOCTYPE html><html><head>
+            <title>Contracts Report</title>
+            <style>
+                @page { margin: 20mm; }
+                body { font-family: Arial, sans-serif; color: #1a1a2e; }
+                .header { border-bottom: 3px solid #00C9B1; padding-bottom: 12px; margin-bottom: 20px; }
+                h1 { font-size: 20px; margin: 0 0 4px; }
+                p { color: var(--text-muted); font-size: 12px; margin: 0; }
+                table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+                th { background: #f1f5f9; color: #475569; font-size: 10px; text-transform: uppercase;
+                     letter-spacing: 1px; padding: 10px; text-align: left; border-bottom: 2px solid var(--text-primary); }
+                td { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+                tr:nth-child(even) { background: #f8fafc; }
+                .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #94a3b8;
+                          border-top: 1px solid var(--text-primary); padding-top: 12px; }
+            </style></head><body>
+            <div class="header">
+                <h1>Contracts Report — Infinia CLM System</h1>
+                <p>Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; Total: ${filteredContracts.length} contracts</p>
+            </div>
+            <table>
+                <thead><tr>
+                    <th>Ref ID</th><th>Title</th><th>Company</th>
+                    <th>Status</th><th>Dept</th><th>Value</th><th>Risk</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div class="footer">Infinia CLM System &nbsp;|&nbsp; Confidential &nbsp;|&nbsp; For Internal Use Only</div>
+            </body></html>`;
+
+        const win = window.open('', '_blank', 'width=900,height=700');
+        win.document.write(html);
+        win.document.close();
+        setTimeout(() => win.print(), 500);
     };
 
     // ──── Donut Chart Helper ────
@@ -376,7 +453,7 @@ const Reports = ({ user }) => {
                                 <tr><td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No contracts match the selected filters.</td></tr>
                             ) : filteredContracts.map((c, i) => (
                                 <tr key={i}>
-                                    <td className={styles.idCell}>{c.id}</td>
+                                    <td className={styles.idCell}>#{(c.id || '').slice(-8).toUpperCase()}</td>
                                     <td className={styles.titleCell}>{c.title}</td>
                                     <td>{c.company}</td>
                                     <td>
@@ -413,17 +490,68 @@ const Reports = ({ user }) => {
                     <h3>Recent Activity Log</h3>
                 </div>
                 <div className={styles.logList}>
-                    {contracts.slice(0, 10).map((c, i) => (
-                        <div key={i} className={styles.logItem}>
-                            <span className={styles.logTime}>{new Date(c.updatedAt || c.createdAt || Date.now()).toLocaleDateString()}</span>
-                            <span className={styles.logUser}>{c.submittedBy || 'System'}</span>
-                            <span className={styles.logAction}>Updated: {c.status || c.stage || 'Draft'}</span>
-                            <span className={styles.logId}>{c.id}</span>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '100px 80px 160px 100px 1fr',
+                        padding: '8px 0',
+                        borderBottom: '1px solid var(--border-color)',
+                        marginBottom: '4px'
+                    }}>
+                        <span onClick={() => handleLogSort('date')} 
+                            style={{fontSize:'10px',fontWeight:'600',color: logSortKey==='date' ? '#00C9B1' : 'var(--text-muted)',
+                            textTransform:'uppercase',letterSpacing:'1px',cursor:'pointer'}}>
+                            DATE{logSortIndicator('date')}
+                        </span>
+                        <span onClick={() => handleLogSort('user')}
+                            style={{fontSize:'10px',fontWeight:'600',color: logSortKey==='user' ? '#00C9B1' : 'var(--text-muted)',
+                            textTransform:'uppercase',letterSpacing:'1px',cursor:'pointer'}}>
+                            USER{logSortIndicator('user')}
+                        </span>
+                        <span onClick={() => handleLogSort('action')}
+                            style={{fontSize:'10px',fontWeight:'600',color: logSortKey==='action' ? '#00C9B1' : 'var(--text-muted)',
+                            textTransform:'uppercase',letterSpacing:'1px',cursor:'pointer'}}>
+                            ACTION{logSortIndicator('action')}
+                        </span>
+                        <span onClick={() => handleLogSort('id')}
+                            style={{fontSize:'10px',fontWeight:'600',color: logSortKey==='id' ? '#00C9B1' : 'var(--text-muted)',
+                            textTransform:'uppercase',letterSpacing:'1px',cursor:'pointer'}}>
+                            REF ID{logSortIndicator('id')}
+                        </span>
+                        <span onClick={() => handleLogSort('title')}
+                            style={{fontSize:'10px',fontWeight:'600',color: logSortKey==='title' ? '#00C9B1' : 'var(--text-muted)',
+                            textTransform:'uppercase',letterSpacing:'1px',cursor:'pointer'}}>
+                            CONTRACT TITLE{logSortIndicator('title')}
+                        </span>
+                    </div>
+                    {sortedLog.map((c, i) => (
+                        <div key={i} 
+                            className={styles.logItem} 
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '100px 80px 160px 100px 1fr',
+                                padding: '10px 0',
+                                borderBottom: '1px solid var(--border-color)',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                transition: 'background 0.15s',
+                                borderRadius: '6px',
+                                paddingLeft: '8px',
+                                paddingRight: '8px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,201,177,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            <span className={styles.logTime}>{new Date(c.date).toLocaleDateString()}</span>
+                            <span className={styles.logUser}>{c.user}</span>
+                            <span className={styles.logAction} style={{color: c.action==='Approved'?'#10B981':'#00C9B1'}}>
+                                Updated: {c.action}
+                            </span>
+                            <span className={styles.logId}>#{(c.id||'').slice(-8).toUpperCase()}</span>
                             <span className={styles.logDetails}>{c.title}</span>
                         </div>
                     ))}
                     {contracts.length === 0 && (
-                        <div style={{ padding: '16px', color: '#9CA3AF' }}>No activity recorded yet.</div>
+                        <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>No activity recorded yet.</div>
                     )}
                 </div>
             </div>

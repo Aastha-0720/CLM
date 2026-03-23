@@ -18,17 +18,15 @@ const Reviews = ({ user }) => {
     useEffect(() => {
         const fetchCounts = async () => {
             try {
-                // In a real app we might have a dedicated stats endpoint
-                // For now, fetch 'Under Review' contracts and count by department
-                const data = await contractService.getContractsByStage('Under Review');
+                const data = await contractService.getAllContracts();
                 const newCounts = { Legal: 0, Finance: 0, Compliance: 0, Procurement: 0 };
 
                 if (data && Array.isArray(data)) {
                     data.forEach(c => {
-                        const dept = c.department || 'Legal'; // fallback to Legal
-                        if (newCounts[dept] !== undefined) {
-                            newCounts[dept]++;
-                        }
+                        if (c.stage === 'Under Review') newCounts.Legal++;
+                        if (c.stage === 'Finance Review') newCounts.Finance++;
+                        if (c.stage === 'Compliance Review') newCounts.Compliance++;
+                        if (c.stage === 'Procurement Review') newCounts.Procurement++;
                     });
                 }
                 setCounts(newCounts);

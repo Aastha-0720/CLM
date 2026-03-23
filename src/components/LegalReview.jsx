@@ -8,30 +8,22 @@ const LegalReview = () => {
     const [loading, setLoading] = useState(true);
     const [comment, setComment] = useState('');
     const [editText, setEditText] = useState('');
+    const [toast, setToast] = useState(null);
+    const [gateModal, setGateModal] = useState(null);
 
     const defaultClauses = [
-        { id: 1, title: 'Commercial Terms', content: 'The commercial terms outline the pricing, delivery schedule, and volume commitments. Pricing is fixed for 12 months subject to a 5% inflation cap.', status: 'Pending' },
-        { id: 2, title: 'Payment Terms', content: 'Net 30 days upon receipt of a valid invoice. Late payments will incur a 1.5% monthly interest penalty.', status: 'Pending' },
         { id: 3, title: 'Liability & Indemnity', content: 'Liability is capped at the total contract value. Each party indemnifies the other against third-party IP infringement claims.', status: 'Pending' },
-        { id: 4, title: 'Compliance Requirements', content: 'Both parties must adhere to GDPR and regional data protection laws. Annual audits may be conducted upon 30 days notice.', status: 'Pending' },
-        { id: 5, title: 'Vendor Terms', content: 'Vendor must maintain insurance of at least $2M per incident. Subcontracting requires prior written approval.', status: 'Pending' }
+        { id: 1, title: 'Commercial Terms', content: 'The commercial terms outline the pricing, delivery schedule, and volume commitments. Pricing is fixed for 12 months subject to a 5% inflation cap.', status: 'Pending' }
     ];
 
     const [clauses, setClauses] = useState(defaultClauses);
     const [comments, setComments] = useState([]);
-    const [activeClauseComments, setActiveClauseComments] = useState(null); // The clause ID currently being discussed
+    const [activeClauseComments, setActiveClauseComments] = useState(null);
     const [newComment, setNewComment] = useState('');
-    const [replyingTo, setReplyingTo] = useState(null); // The comment ID being replied to
-
-    const [suggestions, setSuggestions] = useState({}); // { clauseId: 'suggested text' }
-    const [isEditingClauseId, setIsEditingClauseId] = useState(null);
-    const [tempSuggestText, setTempSuggestText] = useState('');
+    const [replyingTo, setReplyingTo] = useState(null);
 
     const [timeline, setTimeline] = useState([]);
-    const [activeRightTab, setActiveRightTab] = useState('Review'); // 'Review' or 'Timeline'
-
-    const [contractRisk, setContractRisk] = useState('Medium');
-    const [riskNotes, setRiskNotes] = useState('');
+    const [activeRightTab, setActiveRightTab] = useState('Review');
 
     const [statusFilter, setStatusFilter] = useState('All');
     const [riskFilter, setRiskFilter] = useState('All');
@@ -43,8 +35,9 @@ const LegalReview = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = await contractService.getContractsByStage('Under Review');
-            setContracts(data || []);
+            const data = await contractService.getAllContracts();
+            const filtered = data.filter(c => c.stage === 'Under Review');
+            setContracts(filtered || []);
         } catch (e) {
             console.error('Failed to load contracts', e);
         } finally {
@@ -56,10 +49,42 @@ const LegalReview = () => {
         loadData();
     }, []);
 
+    const isPrevApproved = () => true;
+
     const handleAction = async (id, action) => {
+        const contract = contracts.find(c => c.id === id);
+        if (!isPrevApproved(contract)) {
+            setGateModal("");
+            return;
+        }
         try {
-            const status = action === 'Approve' ? 'Approved' : 'Rejected';
-            await contractService.submitReview(id, 'Legal', status, comment || 'Action performed by Legal');
+            let status = '';
+            switch (action) {
+                case 'Approve': status = 'Approved'; break;
+                case 'Reject': status = 'Rejected'; break;
+                case 'RequestChanges': status = 'Changes Requested'; break;
+                default: return;
+            }
+
+            const finalComment = `Legal Review: ${comment}. Clauses reviewed: ${clauses.filter(c=>c.status==='Reviewed').length}/${clauses.length}`;
+
+            await contractService.submitReview(id, 'Legal', status, finalComment);
+
+            await fetch('/api/contracts/' + id + '/save-review-comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    department: 'Legal',
+                    comment: finalComment,
+                    reviewedBy: 'Legal Counsel'
+                })
+            });
+
+            if (status === 'Approved') {
+                setToast('✅ Approved! Moved to Finance Review');
+                setTimeout(() => setToast(null), 3000);
+            }
+
             await loadData();
             setSelectedContract(null);
             setComment('');
@@ -69,101 +94,16 @@ const LegalReview = () => {
     };
 
     const openReview = (contract) => {
+        if (!isPrevApproved(contract)) {
+            setGateModal("");
+            return;
+        }
         setSelectedContract(contract);
         setEditText(contract.extractedText || 'Contract text not available for editing in this mock.');
-
-        // Reset clauses to pending when opening a new contract
         setClauses(defaultClauses.map(c => ({ ...c, status: 'Pending' })));
         setActiveClauseComments(null);
         setComments([]);
-        setSuggestions({});
-        setIsEditingClauseId(null);
-        setContractRisk(contract.priority || 'Medium');
-        setRiskNotes('');
         loadComments(contract.id);
-    };
-
-    const handleEnhancedAction = async (id, action) => {
-        try {
-            let status = '';
-            let commentPrefix = '';
-
-            switch (action) {
-                case 'Approve':
-                    status = 'Approved';
-                    commentPrefix = 'Approved by Legal';
-                    break;
-                case 'Reject':
-                    status = 'Rejected';
-                    commentPrefix = 'Rejected by Legal';
-                    break;
-                case 'RequestChanges':
-                    status = 'Changes Requested';
-                    commentPrefix = 'Changes requested by Legal';
-                    break;
-                case 'Escalate':
-                    await contractService.escalateContract(id, 'Legal', comment || 'High risk escalation');
-                    alert('Contract escalated to senior management.');
-                    setSelectedContract(null);
-                    return;
-                default:
-                    return;
-            }
-
-            const finalComment = `[Risk: ${contractRisk}] ${commentPrefix}: ${comment || 'No additional comments.'} Notes: ${riskNotes}`;
-            await contractService.submitReview(id, 'Legal', status, finalComment);
-
-            if (action === 'RequestChanges') {
-                console.log("Mock notification to Admin: Changes requested for contract", id);
-            }
-
-            await loadData();
-            setSelectedContract(null);
-            setComment('');
-        } catch (e) {
-            alert('Action failed');
-        }
-    };
-
-    const setClauseRisk = (clauseId, risk) => {
-        setClauses(prev => prev.map(c => {
-            if (c.id === clauseId) return { ...c, risk };
-            return c;
-        }));
-    };
-
-    const startSuggesting = (clause) => {
-        setIsEditingClauseId(clause.id);
-        setTempSuggestText(suggestions[clause.id] || clause.content);
-    };
-
-    const handleSuggestChange = (clauseId) => {
-        if (!tempSuggestText.trim()) return;
-        setSuggestions(prev => ({ ...prev, [clauseId]: tempSuggestText }));
-        setIsEditingClauseId(null);
-    };
-
-    const handleAcceptSuggestion = (clauseId) => {
-        const suggestion = suggestions[clauseId];
-        if (!suggestion) return;
-
-        setClauses(prev => prev.map(c => {
-            if (c.id === clauseId) {
-                return { ...c, content: suggestion, status: 'Reviewed' };
-            }
-            return c;
-        }));
-
-        const newSuggestions = { ...suggestions };
-        delete newSuggestions[clauseId];
-        setSuggestions(newSuggestions);
-    };
-
-    const handleRejectSuggestion = (clauseId) => {
-        const newSuggestions = { ...suggestions };
-        delete newSuggestions[clauseId];
-        setSuggestions(newSuggestions);
-        setIsEditingClauseId(null);
     };
 
     const loadComments = async (contractId) => {
@@ -220,7 +160,6 @@ const LegalReview = () => {
     };
 
     const getDeadlineInfo = (contract) => {
-        // Mocking deadline logic
         const daysPending = contract.daysPending || 2;
         if (daysPending > 5) return { label: 'OVERDUE', class: styles.overdue, escalation: true };
         if (daysPending > 3) return { label: 'Approaching Deadline', class: styles.warning, escalation: false };
@@ -228,38 +167,53 @@ const LegalReview = () => {
     };
 
     const filteredContracts = contracts.filter(c => {
-        // Status Filter
         if (statusFilter !== 'All') {
             const daysPending = c.daysPending || 2;
             if (statusFilter === 'Overdue' && daysPending <= 5) return false;
             if (statusFilter === 'Pending' && c.status === 'Reviewed') return false;
             if (statusFilter === 'Reviewed' && c.status !== 'Reviewed') return false;
         }
-
-        // Risk Filter
         if (riskFilter !== 'All' && (c.priority || 'Medium') !== riskFilter) return false;
-
-        // Value Range
         if (minValue && Number(c.value) < Number(minValue)) return false;
         if (maxValue && Number(c.value) > Number(maxValue)) return false;
-
-        // Search
         if (queueSearch) {
             const q = queueSearch.toLowerCase();
             const matches = (c.title?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q));
             if (!matches) return false;
         }
-
         return true;
     });
+
+    const WorkflowProgress = ({ contract }) => {
+        const steps = [
+            { name: 'Legal', approved: contract?.reviews?.Legal?.status === 'Approved' },
+            { name: 'Finance', approved: contract?.reviews?.Finance?.status === 'Approved' },
+            { name: 'Compliance', approved: contract?.reviews?.Compliance?.status === 'Approved' },
+            { name: 'Procurement', approved: contract?.reviews?.Procurement?.status === 'Approved' },
+        ];
+        const currentIdx = steps.findIndex(s => !s.approved);
+        return (
+            <div className={styles.workflowBar}>
+                {steps.map((s, i) => (
+                    <React.Fragment key={s.name}>
+                        {i > 0 && <div className={`${styles.workflowLine} ${steps[i - 1].approved ? styles.wlDone : ''}`} />}
+                        <div className={styles.workflowStep}>
+                            <div className={`${styles.workflowDot} ${s.approved ? styles.wdApproved : i === currentIdx ? styles.wdCurrent : styles.wdLocked}`} />
+                            <span className={styles.workflowLabel}>{s.name}</span>
+                        </div>
+                    </React.Fragment>
+                ))}
+            </div>
+        );
+    };
 
     return (
         <div className={styles.container}>
             <header className={styles.pageHeader}>
-                <div className={styles.titleArea}>
-                    <h2>Legal Review Queue</h2>
-                    <p>Manage and verify legal compliance for active contract requests.</p>
-                </div>
+                 <div className={styles.titleArea}>
+                     <h2>Legal Review Queue</h2>
+                     <p>Manage and verify Legal terms for active contract requests.</p>
+                 </div>
             </header>
 
             {loading ? (
@@ -348,7 +302,7 @@ const LegalReview = () => {
                                 <div key={c.id} className={styles.contractCard}>
                                     <div className={styles.cardHeader}>
                                         <div className={styles.titleGroup}>
-                                            <h3>{c.title}</h3>
+                                            <h3>{c.title} {!isPrevApproved(c) && <span style={{marginLeft: '8px'}} title="Previous department approval pending">🔒</span>}</h3>
                                             <span className={styles.counterparty}>{c.company}</span>
                                         </div>
                                         <span className={`${styles.priorityBadge} ${styles[c.priority?.toLowerCase() || 'medium']}`}>
@@ -356,10 +310,12 @@ const LegalReview = () => {
                                         </span>
                                     </div>
 
+                                    <WorkflowProgress contract={c} />
+
                                     <div className={styles.details}>
                                         <div className={styles.detailRow}>
                                             <span className={styles.label}>Contract ID:</span>
-                                            <span className={styles.value}>{c.id}</span>
+                                            <span className={styles.value}>#{String(c.id).slice(-8).toUpperCase()}</span>
                                         </div>
                                         <div className={styles.detailRow}>
                                             <span className={styles.label}>Value:</span>
@@ -381,11 +337,11 @@ const LegalReview = () => {
                                             </div>
                                         )}
                                         <div className={styles.actions}>
-                                            <button className={`${styles.btn} ${styles.viewBtn}`} onClick={() => openReview(c)}>
+                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.viewBtn}`} onClick={() => openReview(c)}>
                                                 <span>🔍</span> View & Review
                                             </button>
-                                            <button className={`${styles.btn} ${styles.approveBtn}`} onClick={() => handleAction(c.id, 'Approve')}>Approve</button>
-                                            <button className={`${styles.btn} ${styles.rejectBtn}`} onClick={() => handleAction(c.id, 'Reject')}>Reject</button>
+                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(c.id, 'Approve')}>Approve</button>
+                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(c.id, 'Reject')}>Reject</button>
                                         </div>
                                     </div>
                                 </div>
@@ -403,34 +359,27 @@ const LegalReview = () => {
 
             {contracts.length === 0 && !loading && (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-                    All legal reviews are cleared. Great job!
+                    All reviews are cleared. Great job!
+                </div>
+            )}
+
+            {gateModal && (
+                <div className={styles.gateOverlay}>
+                    <div className={styles.gateModal}>
+                        <div className={styles.gateIcon}>⛔</div>
+                        <h3 className={styles.gateTitle}>Action Not Allowed</h3>
+                        <p className={styles.gateBody}>{gateModal}</p>
+                        <button className={styles.gateOk} onClick={() => setGateModal(null)}>OK</button>
+                    </div>
                 </div>
             )}
 
             {/* Split Pane Review Modal */}
             {selectedContract && (
                 <div className={styles.splitModalOverlay}>
-                    <div className={styles.splitModalContainer}>
-                        {/* Left Side: Document Viewer */}
-                        <div className={styles.documentPane}>
-                            <div className={styles.documentHeader}>
-                                <span className={styles.documentTitle}>{selectedContract.title} - Document View</span>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button className={styles.btn} style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>Zoom In</button>
-                                    <button className={styles.btn} style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>Zoom Out</button>
-                                </div>
-                            </div>
-                            <div className={styles.documentViewerPlaceholder}>
-                                <div className={styles.placeholderIcon}>📄</div>
-                                <h4>No PDF Attached</h4>
-                                <p style={{ maxWidth: '300px', textAlign: 'center', marginTop: '12px', lineHeight: '1.5' }}>
-                                    PDF rendering is simulated for this demo. The contract document would normally be displayed here for comprehensive review.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Right Side: Review Panel */}
-                        <div className={styles.reviewPane}>
+                    <div className={styles.splitModalContainer} style={{ display: 'flex' }}>
+                        
+                        <div className={styles.reviewPane} style={{ flex: 1, borderLeft: 'none', maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}>
                             <div className={styles.reviewPaneHeader}>
                                 <div>
                                     <div className={styles.tabGroup}>
@@ -457,7 +406,7 @@ const LegalReview = () => {
                             <div className={styles.reviewPaneContent}>
                                 {activeRightTab === 'Review' ? (
                                     <>
-                                        <div className={styles.metadataGrid}>
+                                        <div className={styles.metadataGrid} style={{ borderLeft: '3px solid #00C9B1', paddingLeft: '12px' }}>
                                             <div className={styles.metaItem}>
                                                 <span className={styles.metaLabel}>Contract Title</span>
                                                 <span className={styles.metaValue}>{selectedContract.title}</span>
@@ -483,7 +432,6 @@ const LegalReview = () => {
                                             <div className={styles.metaItem}>
                                                 <span className={styles.metaLabel}>Due Date</span>
                                                 <span className={styles.metaValue}>
-                                                    {/* Simulate Due Date: Created At + 5 Days */}
                                                     {new Date((new Date(selectedContract.createdAt || Date.now()).getTime()) + (5 * 24 * 60 * 60 * 1000)).toLocaleDateString()}
                                                 </span>
                                             </div>
@@ -492,55 +440,19 @@ const LegalReview = () => {
                                                 <span className={styles.metaValue} style={{ color: 'var(--accent-teal)' }}>{selectedContract.status || selectedContract.stage}</span>
                                             </div>
                                         </div>
-
-                                        <div className={styles.riskTaggingArea}>
-                                            <span className={styles.sectionLabel}>Risk Assessment</span>
-                                            <div className={styles.riskSelector}>
-                                                {['Low', 'Medium', 'High'].map(r => (
-                                                    <div
-                                                        key={r}
-                                                        className={`${styles.riskOption} ${contractRisk === r ? styles.active : ''}`}
-                                                        style={{ color: r === 'Low' ? '#10b981' : r === 'Medium' ? '#f59e0b' : '#ef4444' }}
-                                                        onClick={() => setContractRisk(r)}
-                                                    >
-                                                        {r} Risk
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <textarea
-                                                className={styles.riskNotesArea}
-                                                placeholder="Add risk-specific notes (e.g. why High Risk or mitigation strategy)..."
-                                                value={riskNotes}
-                                                onChange={(e) => setRiskNotes(e.target.value)}
-                                            />
+                                        
+                                        <div style={{ fontSize: '12px', color: '#00C9B1', marginTop: '12px', marginBottom: '16px', fontWeight: 600 }}>
+                                            {clauses.filter(c => c.status === 'Reviewed').length} of {clauses.length} clauses reviewed
                                         </div>
 
                                         <div className={styles.clauseSectionContainer}>
-                                            <span className={styles.sectionLabel} style={{ marginBottom: '8px', display: 'block' }}>Clause-Based Review</span>
+                                            <span className={styles.sectionLabel} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', display: 'block' }}>Clause-Based Review</span>
                                             <div className={styles.clauseList}>
                                                 {clauses.map(clause => (
-                                                    <div
-                                                        key={clause.id}
-                                                        className={`
-                                                    ${styles.clauseCard} 
-                                                    ${suggestions[clause.id] ? styles.suggestionActive : ''}
-                                                    ${clause.risk === 'High' ? styles.clauseRiskHigh : ''}
-                                                    ${clause.risk === 'Medium' ? styles.clauseRiskMedium : ''}
-                                                `}
-                                                    >
+                                                    <div key={clause.id} className={styles.clauseCard} style={{ marginBottom: '12px', padding: '16px' }}>
                                                         <div className={styles.clauseHeader}>
                                                             <h4 className={styles.clauseTitle}>{clause.title}</h4>
                                                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                {clause.risk && (
-                                                                    <span className={`${styles.riskBadge} ${clause.risk === 'High' ? styles.riskHigh : clause.risk === 'Medium' ? styles.riskMedium : styles.riskLow}`}>
-                                                                        {clause.risk} Risk
-                                                                    </span>
-                                                                )}
-                                                                {suggestions[clause.id] && (
-                                                                    <span className={styles.clauseStatus} style={{ background: 'rgba(52, 211, 153, 0.1)', color: '#34d399' }}>
-                                                                        Prop. Change
-                                                                    </span>
-                                                                )}
                                                                 <span className={`${styles.clauseStatus} ${clause.status === 'Reviewed' ? styles.clauseReviewed : styles.clausePending}`}>
                                                                     {clause.status === 'Reviewed' ? '✓ Reviewed' : 'Pending'}
                                                                 </span>
@@ -548,37 +460,7 @@ const LegalReview = () => {
                                                         </div>
 
                                                         <div className={styles.clauseBody}>
-                                                            {isEditingClauseId === clause.id ? (
-                                                                <div className={styles.paneSection}>
-                                                                    <textarea
-                                                                        className={styles.suggestInputArea}
-                                                                        value={tempSuggestText}
-                                                                        onChange={(e) => setTempSuggestText(e.target.value)}
-                                                                        autoFocus
-                                                                    />
-                                                                    <div className={styles.suggestionActions}>
-                                                                        <button className={`${styles.btn} ${styles.btnAccept}`} style={{ padding: '4px 12px' }} onClick={() => handleSuggestChange(clause.id)}>Propose</button>
-                                                                        <button className={`${styles.btn} ${styles.btnReject}`} style={{ padding: '4px 12px' }} onClick={() => setIsEditingClauseId(null)}>Cancel</button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : suggestions[clause.id] ? (
-                                                                <div className={styles.diffContainer}>
-                                                                    <div className={styles.diffSection}>
-                                                                        <span className={styles.diffLabel}>Original</span>
-                                                                        <span className={styles.textOriginal}>{clause.content}</span>
-                                                                    </div>
-                                                                    <div className={styles.diffSection}>
-                                                                        <span className={styles.diffLabel}>Suggested</span>
-                                                                        <span className={styles.textSuggested}>{suggestions[clause.id]}</span>
-                                                                    </div>
-                                                                    <div className={styles.suggestionActions}>
-                                                                        <button className={`${styles.btn} ${styles.btnAccept}`} onClick={() => handleAcceptSuggestion(clause.id)}>Accept</button>
-                                                                        <button className={`${styles.btn} ${styles.btnReject}`} onClick={() => handleRejectSuggestion(clause.id)}>Reject</button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                clause.content
-                                                            )}
+                                                            {clause.content}
                                                         </div>
 
                                                         <div className={styles.clauseFooter}>
@@ -593,16 +475,6 @@ const LegalReview = () => {
                                                                 </span>
                                                             </button>
 
-                                                            {!suggestions[clause.id] && isEditingClauseId !== clause.id && (
-                                                                <button
-                                                                    className={`${styles.actionLink} ${styles.btnSuggest}`}
-                                                                    style={{ marginRight: '12px' }}
-                                                                    onClick={() => startSuggesting(clause)}
-                                                                >
-                                                                    ✎ Suggest Change
-                                                                </button>
-                                                            )}
-
                                                             <button
                                                                 className={`${styles.clauseActionBtn} ${clause.status === 'Reviewed' ? styles.btnUndo : styles.btnMark}`}
                                                                 onClick={() => toggleClauseStatus(clause.id)}
@@ -610,26 +482,12 @@ const LegalReview = () => {
                                                                 {clause.status === 'Reviewed' ? 'Undo Review' : 'Mark as Reviewed'}
                                                             </button>
                                                         </div>
-
-                                                        <div className={styles.riskSelector} style={{ marginTop: '12px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '8px' }}>
-                                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginRight: 'auto', alignSelf: 'center' }}>Tag Clause Risk:</span>
-                                                            {['Low', 'Medium', 'High'].map(r => (
-                                                                <button
-                                                                    key={r}
-                                                                    className={`${styles.actionLink} ${clause.risk === r ? styles.active : ''}`}
-                                                                    style={{ fontSize: '10px', color: clause.risk === r ? (r === 'Low' ? '#10b981' : r === 'Medium' ? '#f59e0b' : '#ef4444') : 'var(--text-muted)' }}
-                                                                    onClick={() => setClauseRisk(clause.id, r)}
-                                                                >
-                                                                    {r}
-                                                                </button>
-                                                            ))}
-                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        <div className={styles.paneSection}>
+                                        <div className={styles.paneSection} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                                             <span className={styles.sectionLabel}>Internal Comments</span>
                                             <textarea
                                                 className={styles.textarea}
@@ -640,11 +498,12 @@ const LegalReview = () => {
                                             />
                                         </div>
 
-                                        <div className={styles.actions} style={{ marginTop: 'auto', paddingTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                                            <button className={`${styles.btn} ${styles.approveBtn}`} onClick={() => handleEnhancedAction(selectedContract.id, 'Approve')}>Approve</button>
-                                            <button className={`${styles.btn} ${styles.btnRequest}`} onClick={() => handleEnhancedAction(selectedContract.id, 'RequestChanges')}>Request Changes</button>
-                                            <button className={`${styles.btn} ${styles.btnEscalate}`} onClick={() => handleEnhancedAction(selectedContract.id, 'Escalate')}>Escalate</button>
-                                            <button className={`${styles.btn} ${styles.rejectBtn}`} onClick={() => handleEnhancedAction(selectedContract.id, 'Reject')}>Reject</button>
+                                        <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(selectedContract.id, 'Approve')}>Approve Contract</button>
+                                                <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.btnRequest}`} onClick={() => handleAction(selectedContract.id, 'RequestChanges')}>Request Changes</button>
+                                            </div>
+                                            <button style={{ width: '100%', marginTop: '8px' }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(selectedContract.id, 'Reject')}>Reject / Change</button>
                                         </div>
                                     </>
                                 ) : (
@@ -705,8 +564,6 @@ const LegalReview = () => {
                                                             )}
                                                         </div>
                                                     </div>
-
-                                                    {/* Replies */}
                                                     {comments.filter(r => r.parentId === parent.id).map(reply => (
                                                         <div key={reply.id} className={`${styles.commentBubble} ${styles.replyBubble}`}>
                                                             <div className={styles.commentMeta}>
@@ -752,6 +609,18 @@ const LegalReview = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {toast && (
+                <div style={{
+                    position: 'fixed', bottom: '24px', right: '24px', 
+                    background: '#10b981', color: 'white', padding: '12px 24px', 
+                    borderRadius: '8px', zIndex: 9999, boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    fontWeight: 500
+                }}>
+                    {toast}
                 </div>
             )}
         </div>

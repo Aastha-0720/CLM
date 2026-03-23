@@ -50,6 +50,13 @@ class Contract(BaseModel):
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
 
+class CASStep(BaseModel):
+    role: str
+    name: str
+    status: str = "Pending"
+    timestamp: Optional[str] = None
+    approvedBy: Optional[str] = None
+
 class CAS(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     contractId: str
@@ -59,6 +66,11 @@ class CAS(BaseModel):
     status: str = "Pending Approval"
     createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     doaApprover: str = ""
+    businessUnit: str = ""
+    department: str = ""
+    agreementType: str = "Master Service Agreement"
+    keyNotes: str = ""
+    approvalChain: List[dict] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True

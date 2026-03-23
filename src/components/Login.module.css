@@ -13,7 +13,7 @@
     border-radius: var(--radius-xl);
     padding: 40px;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -37,8 +37,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
+    width: 100%;
 }
 
 .logoIcon {

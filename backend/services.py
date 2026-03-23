@@ -32,9 +32,6 @@ def determine_doa_approver(value: float) -> str:
         return "VP"
 
 def generate_cas_document(contract_id: str, contract_title: str, value: float, initiator: str) -> CAS:
-    """
-    Creates a Contract Approval Sheet (CAS) object.
-    """
     approver = determine_doa_approver(value)
     return CAS(
         contractId=contract_id,
@@ -43,7 +40,17 @@ def generate_cas_document(contract_id: str, contract_title: str, value: float, i
         initiator=initiator,
         doaApprover=approver,
         status="Pending Approval",
-        createdAt=datetime.utcnow().isoformat()
+        createdAt=datetime.utcnow().isoformat(),
+        department="Legal",
+        businessUnit="Operations",
+        agreementType="Master Service Agreement",
+        keyNotes="Standard terms applied. No high-risk deviations noted.",
+        approvalChain=[
+            {"role": "Initiator", "name": initiator, "status": "Approved", "timestamp": datetime.utcnow().isoformat(), "approvedBy": initiator},
+            {"role": "Endorser", "name": "Dept Head", "status": "Pending", "timestamp": None, "approvedBy": None},
+            {"role": "Reviewer", "name": "Legal Counsel", "status": "Pending", "timestamp": None, "approvedBy": None},
+            {"role": "Approver", "name": approver, "status": "Pending", "timestamp": None, "approvedBy": None}
+        ]
     )
 
 def all_reviews_approved(reviews: dict) -> bool:
