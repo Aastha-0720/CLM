@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import styles from '../UploadContract.module.css';
-import { contractService } from '../../services/contractService';
 
 const FileUploadTab = ({ onDataChange }) => {
     const [file, setFile] = useState(null);
@@ -8,6 +7,12 @@ const FileUploadTab = ({ onDataChange }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [extractedData, setExtractedData] = useState(null);
     const [error, setError] = useState('');
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+    };
 
     const handleDragOver = (e) => {
         e.preventDefault();
@@ -49,18 +54,25 @@ const FileUploadTab = ({ onDataChange }) => {
             setError('Please select a file to process.');
             return;
         }
-
         setIsProcessing(true);
         setError('');
-
         try {
-            const data = await contractService.extractContractData(file);
-            setExtractedData(data);
-            if (onDataChange) {
-                onDataChange({ ...data, title: file.name });
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch('/api/ai/extract-file', {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) throw new Error('Extraction failed');
+            const data = await response.json();
+            if (!data.counterparty && !data.contractValue) {
+                setError('AI could not extract data. Please try a different file.');
+                return;
             }
+            setExtractedData(data);
+            if (onDataChange) onDataChange({ ...data, title: file.name });
         } catch (err) {
-            setError('Failed to extract data from file.');
+            setError('Failed to extract data from file. Please try again.');
         } finally {
             setIsProcessing(false);
         }
@@ -83,34 +95,43 @@ const FileUploadTab = ({ onDataChange }) => {
                         </div>
                     </div>
 
-                    <div
-                        className={`${styles.uploadBox} ${isDragging ? styles.dragging : ''}`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        style={{
-                            border: isDragging ? '2px solid #2563eb' : '2px dashed rgba(255,255,255,0.1)',
-                            backgroundColor: isDragging ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
-                            transition: 'all 0.3s ease'
-                        }}
-                    >
-                        <div className={styles.uploadIcon} style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-                        <div className={styles.uploadText}>
-                            {file ? (
-                                <strong style={{ color: '#10b981' }}>{file.name}</strong>
-                            ) : (
-                                <>
-                                    <strong>Click to upload</strong> or drag and drop
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>PDF or DOCX documents allowed</p>
-                                </>
-                            )}
+                    <input
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={handleFileChange}
+                        style={{ marginBottom: '12px' }}
+                    />
+                    <div style={{ position: 'relative' }}>
+                        <div
+                            className={`${styles.uploadBox} ${isDragging ? styles.dragging : ''}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            style={{
+                                position: 'relative',
+                                border: isDragging ? '2px solid #2563eb' : '2px dashed rgba(255,255,255,0.1)',
+                                backgroundColor: isDragging ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            <div className={styles.uploadIcon} style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+                            <div className={styles.uploadText}>
+                                {file ? (
+                                    <strong style={{ color: '#10b981' }}>{file.name}</strong>
+                                ) : (
+                                    <>
+                                        <strong>Click to upload</strong> or drag and drop
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>PDF or DOCX documents allowed</p>
+                                    </>
+                                )}
+                            </div>
+                            <input
+                                type="file"
+                                accept=".pdf,.docx"
+                                onChange={handleFileChange}
+                                style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer' }}
+                            />
                         </div>
-                        <input
-                            type="file"
-                            accept=".pdf,.docx"
-                            onChange={handleFileChange}
-                            style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer' }}
-                        />
                     </div>
 
                     {error && (
@@ -215,9 +236,9 @@ const FileUploadTab = ({ onDataChange }) => {
                                     });
                                     if (!response.ok) throw new Error('Failed');
                                     handleReset();
-                                    alert('Contract submitted for Legal Review!');
+                                    showToast('Contract submitted for Legal Review!');
                                 } catch (err) {
-                                    alert('Failed to submit contract. Please try again.');
+                                    showToast('Failed to submit contract.', 'error');
                                 }
                             }}>
                             Proceed to Verification
@@ -229,6 +250,23 @@ const FileUploadTab = ({ onDataChange }) => {
                 __html: `
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             `}} />
+            {toast.show && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    background: toast.type === 'success' ? '#10B981' : '#EF4444',
+                    color: '#fff',
+                    padding: '14px 24px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    zIndex: 9999,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                }}>
+                    {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
+                </div>
+            )}
         </div>
     );
 };

@@ -16,6 +16,12 @@ const CreateContractTab = ({ onDataChange }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedDraft, setGeneratedDraft] = useState('');
     const [errors, setErrors] = useState({});
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -83,20 +89,57 @@ const CreateContractTab = ({ onDataChange }) => {
                 </div>
 
                 <div style={{
-                    background: 'rgba(15, 23, 42, 0.5)',
+                    background: 'var(--bg-card)',
                     padding: '2rem',
                     borderRadius: '12px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#cbd5e1',
-                    fontSize: '0.95rem',
-                    lineHeight: '1.6',
-                    whiteSpace: 'pre-wrap',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.8',
                     marginBottom: '2rem',
                     maxHeight: '400px',
-                    overflowY: 'auto',
-                    fontFamily: 'monospace'
+                    overflowY: 'auto'
                 }}>
-                    {generatedDraft}
+                    {generatedDraft.split('\n').map((line, index) => {
+                        // H1 heading
+                        if (line.startsWith('# ')) {
+                            return <h2 key={index} style={{ 
+                                fontSize: '1.2rem', fontWeight: '700', 
+                                color: '#00C9B1', marginBottom: '8px', 
+                                marginTop: '16px' 
+                            }}>{line.replace('# ', '')}</h2>;
+                        }
+                        // H2 heading
+                        if (line.startsWith('## ')) {
+                            return <h3 key={index} style={{ 
+                                fontSize: '1rem', fontWeight: '600', 
+                                color: 'var(--text-primary)', 
+                                marginBottom: '6px', marginTop: '14px',
+                                borderBottom: '1px solid var(--border-color)',
+                                paddingBottom: '4px'
+                            }}>{line.replace('## ', '')}</h3>;
+                        }
+                        // Bold text **text**
+                        if (line.includes('**')) {
+                            const parts = line.split('**');
+                            return <p key={index} style={{ marginBottom: '6px' }}>
+                                {parts.map((part, i) => 
+                                    i % 2 === 1 
+                                        ? <strong key={i}>{part}</strong> 
+                                        : part
+                                )}
+                            </p>;
+                        }
+                        // Empty line
+                        if (line.trim() === '') {
+                            return <br key={index} />;
+                        }
+                        // Normal line
+                        return <p key={index} style={{ 
+                            marginBottom: '4px',
+                            color: 'var(--text-secondary)'
+                        }}>{line}</p>;
+                    })}
                 </div>
 
                 <div className={styles.formFooter}>
@@ -122,9 +165,9 @@ const CreateContractTab = ({ onDataChange }) => {
                                 });
                                 if (!response.ok) throw new Error('Failed');
                                 handleReset();
-                                alert('Contract submitted for Legal Review!');
+                                showToast('Contract submitted for Legal Review!');
                             } catch (err) {
-                                alert('Failed to submit contract. Please try again.');
+                                showToast('Failed to submit contract.', 'error');
                             }
                         }}>
                         Finalize & Initialize Contract
@@ -276,6 +319,23 @@ const CreateContractTab = ({ onDataChange }) => {
                 __html: `
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             `}} />
+            {toast.show && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    background: toast.type === 'success' ? '#10B981' : '#EF4444',
+                    color: '#fff',
+                    padding: '14px 24px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    zIndex: 9999,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                }}>
+                    {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
+                </div>
+            )}
         </div>
     );
 };

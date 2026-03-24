@@ -8,6 +8,12 @@ const EmailBucketTab = ({ onDataChange }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [extractedData, setExtractedData] = useState(null);
     const [error, setError] = useState('');
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+    };
 
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
@@ -19,20 +25,31 @@ const EmailBucketTab = ({ onDataChange }) => {
             setError('Please upload an email file or paste email content.');
             return;
         }
-
         setIsProcessing(true);
         setError('');
         setExtractedData(null);
-
         try {
-            // In a real app, we'd send the file or text. 
-            // Here we use our mock service.
-            const data = await contractService.parseEmailContent(file || rawContent);
-            setExtractedData(data);
-            if (onDataChange) {
-                onDataChange(data);
+            let emailText = rawContent;
+            if (file) {
+                emailText = await file.text();
             }
+            const response = await fetch('/api/ai/extract-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email_text: emailText })
+            });
+            if (!response.ok) throw new Error('Extraction failed');
+            const data = await response.json();
+            
+            // Make sure data has values
+            if (!data.counterpartyName && !data.contractValue) {
+                setError('AI could not extract data. Please paste email content manually.');
+                return;
+            }
+            setExtractedData(data);
+            if (onDataChange) onDataChange(data);
         } catch (err) {
+            console.error('Email extraction error:', err);
             setError('Failed to process email. Please try again.');
         } finally {
             setIsProcessing(false);
@@ -61,9 +78,9 @@ const EmailBucketTab = ({ onDataChange }) => {
             setExtractedData(null);
             setRawContent('');
             setFile(null);
-            alert('Contract created and sent for Legal Review!');
+            showToast('Contract created and sent for Legal Review!');
         } catch (err) {
-            alert('Failed to create contract. Please try again.');
+            showToast('Failed to create contract.', 'error');
         }
     };
 
@@ -211,6 +228,23 @@ const EmailBucketTab = ({ onDataChange }) => {
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             `}} />
+            {toast.show && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    background: toast.type === 'success' ? '#10B981' : '#EF4444',
+                    color: '#fff',
+                    padding: '14px 24px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    zIndex: 9999,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                }}>
+                    {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
+                </div>
+            )}
         </div>
     );
 };

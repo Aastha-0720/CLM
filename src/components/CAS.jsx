@@ -450,7 +450,39 @@ const CAS = ({ user }) => {
                                 </div>
 
                                 <div className={styles.sheetSection}>
-                                    <span className={styles.sectionTitle}>SECTION B — KEY NOTES</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <span className={styles.sectionTitle}>SECTION B — KEY NOTES</span>
+                                        <button
+                                            onClick={async () => {
+                                                if (!selectedCas) return;
+                                                try {
+                                                    const response = await fetch('/api/ai/generate-cas-notes', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ contract_id: selectedCas.contractId })
+                                                    });
+                                                    if (!response.ok) throw new Error('Failed');
+                                                    const data = await response.json();
+                                                    showToast('✨ AI notes generated!');
+                                                    await loadData();
+                                                } catch (err) {
+                                                    showToast('Failed to generate notes');
+                                                }
+                                            }}
+                                            style={{
+                                                background: 'transparent',
+                                                border: '1px solid #00C9B1',
+                                                color: '#00C9B1',
+                                                borderRadius: '6px',
+                                                padding: '4px 12px',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Generate with AI ✨
+                                        </button>
+                                    </div>
                                     <div className={styles.keyNotesBox}>
                                         {selectedCas.keyNotes || 'Standard terms applied. No high-risk deviations noted in the initial compliance verification. Fiscal impact falls within the current quarterly budget allocation.'}
                                     </div>

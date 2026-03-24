@@ -60,7 +60,9 @@ const UploadContract = () => {
                 />
             </div>
 
-            <AiVerificationPanel data={contractData} />
+            {contractData && (contractData.counterpartyName || contractData.company || contractData.counterparty) && (
+                <AiVerificationPanel data={contractData} />
+            )}
         </div>
     );
 };

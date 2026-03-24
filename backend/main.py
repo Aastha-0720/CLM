@@ -9,6 +9,14 @@ from datetime import datetime
 from database import db
 from models import Contract, CAS, DepartmentReviews
 import services
+from openai import OpenAI
+import os
+
+deepseek_client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+    base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+)
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
 app = FastAPI(title="CLM Admin Backend")
 
@@ -63,16 +71,38 @@ async def upload_contracts(file: UploadFile = File(...)):
     
     inserted_count = 0
     for _, row in df.iterrows():
-        email = str(row.get('email', ''))
-        if not email:
-            continue
-            
         company_name = str(row.get('company', '')).strip()
         if not company_name or company_name == 'nan':
-            company_name = await services.extract_company_from_email_mock(email)
-        title = row.get('title', f"{company_name} Agreement")
-        value = float(row.get('value', 0))
-        department = str(row.get('department', 'Legal'))
+            company_name = 'Unknown Company'
+        
+        title = str(row.get('title', f"{company_name} Agreement")).strip()
+        if not title or title == 'nan':
+            title = f"{company_name} Agreement"
+        
+        try:
+            value = float(str(row.get('value', 0)).replace(',', '').replace('$', ''))
+        except:
+            value = 0.0
+        
+        department = str(row.get('department', 'Legal')).strip()
+        if department == 'nan':
+            department = 'Legal'
+        
+        stage = str(row.get('stage', 'Under Review')).strip()
+        if stage == 'nan':
+            stage = 'Under Review'
+        
+        status = str(row.get('status', 'Pending')).strip()
+        if status == 'nan':
+            status = 'Pending'
+        
+        submitted_by = str(row.get('submittedBy', 'Admin')).strip()
+        if submitted_by == 'nan':
+            submitted_by = 'Admin'
+        
+        risk_level = str(row.get('riskLevel', 'Medium')).strip()
+        if risk_level == 'nan':
+            risk_level = 'Medium'
         
         contract = Contract(
             title=title,
@@ -455,4 +485,202 @@ async def get_users_auth():
         u["id"] = str(u["_id"])
         del u["_id"]
     return users
+
+@app.post("/api/ai/analyze-contract")
+async def analyze_contract(data: dict = Body(...)):
+    try:
+        document_text = data.get("document_text", "")
+        response = deepseek_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{
+                "role": "system",
+                "content": """You are a contract analyzer. Analyze the contract 
+                and return ONLY a JSON object with these keys:
+                {
+                  "status": "success",
+                  "riskScore": "Low/Medium/High",
+                  "missingTerms": ["term1", "term2"],
+                  "extractedClauses": {
+                    "liability": "...",
+                    "payment": "...",
+                    "termination": "...",
+                    "compliance": "..."
+                  },
+                  "summary": "2-3 line summary"
+                }
+                No explanation, no markdown, just JSON."""
+            }, {
+                "role": "user",
+                "content": f"Analyze this contract:\n\n{document_text[:4000]}"
+            }],
+            max_tokens=1000
+        )
+        import json
+        result = json.loads(response.choices[0].message.content)
+        return result
+    except Exception as e:
+        return {
+            "status": "error",
+            "riskScore": "Medium",
+            "missingTerms": [],
+            "extractedClauses": {},
+            "summary": "Analysis failed"
+        }
+
+@app.post("/api/ai/extract-email")
+async def extract_email(data: dict = Body(...)):
+    try:
+        email_text = data.get("email_text", "")
+        response = deepseek_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{
+                "role": "system",
+                "content": """You are a contract data extractor.
+Extract contract information from the email text.
+Return ONLY a valid JSON object with exactly these keys:
+{
+  "counterpartyName": "company or person name",
+  "contractValue": "amount with currency symbol",
+  "subject": "contract type or title",
+  "dates": "start date - end date"
+}
+IMPORTANT: Return raw JSON only. No markdown, no backticks, no explanation."""
+            }, {
+                "role": "user",
+                "content": f"Extract contract info from this email:\n\n{email_text[:3000]}"
+            }],
+            max_tokens=500,
+            temperature=0
+        )
+        import json, re
+        raw = response.choices[0].message.content.strip()
+        # Strip markdown code blocks if present
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+        raw = raw.strip()
+        result = json.loads(raw)
+        # Make sure all required keys exist
+        return {
+            "counterpartyName": result.get("counterpartyName", ""),
+            "contractValue": result.get("contractValue", ""),
+            "subject": result.get("subject", ""),
+            "dates": result.get("dates", "")
+        }
+    except Exception as e:
+        print(f"Email extraction error: {e}")
+        return {
+            "counterpartyName": "",
+            "contractValue": "",
+            "subject": "",
+            "dates": ""
+        }
+
+@app.post("/api/ai/generate-cas-notes")
+async def generate_cas_notes(data: dict = Body(...)):
+    try:
+        contract_id = data.get("contract_id", "")
+        contract = await db.contracts.find_one(
+            {"_id": ObjectId(contract_id)}
+        ) if ObjectId.is_valid(contract_id) else None
+        
+        if not contract:
+            return {"key_notes": "Standard terms applied."}
+
+        reviews = contract.get("reviews", {})
+        review_comments = []
+        for dept, review in reviews.items():
+            if review.get("comments"):
+                review_comments.append(
+                    f"{dept}: {review['comments']}"
+                )
+
+        prompt = f"""Contract: {contract.get('title')}
+Value: ${contract.get('value', 0):,}
+Company: {contract.get('company')}
+Review comments: {'; '.join(review_comments)}
+
+Generate professional CAS key notes in 2-3 sentences."""
+
+        response = deepseek_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{
+                "role": "system",
+                "content": "You are a legal document writer. Write professional contract approval notes."
+            }, {
+                "role": "user",
+                "content": prompt
+            }],
+            max_tokens=300
+        )
+        key_notes = response.choices[0].message.content.strip()
+        
+        if ObjectId.is_valid(contract_id):
+            await db.cas.update_one(
+                {"contractId": contract_id},
+                {"$set": {"keyNotes": key_notes}}
+            )
+        
+        return {"key_notes": key_notes}
+    except Exception as e:
+        return {"key_notes": "Standard terms applied."}
+
+@app.post("/api/ai/extract-file")
+async def extract_file(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        text = ""
+        
+        if file.filename.endswith('.pdf'):
+            import PyPDF2
+            from io import BytesIO
+            pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+            for page in pdf_reader.pages:
+                text += page.extract_text() or ""
+        elif file.filename.endswith('.docx'):
+            import docx
+            from io import BytesIO
+            doc = docx.Document(BytesIO(contents))
+            text = "\n".join([p.text for p in doc.paragraphs])
+        else:
+            text = contents.decode('utf-8', errors='ignore')
+
+        response = deepseek_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{
+                "role": "system",
+                "content": """Extract contract info. Return ONLY JSON:
+                {
+                  "counterparty": "",
+                  "contractValue": "",
+                  "duration": "",
+                  "keyDates": "",
+                  "clauses": [
+                    {"text": "", "type": "", "department": ""}
+                  ]
+                }
+                Departments: Legal, Finance, Compliance, Procurement"""
+            }, {
+                "role": "user",
+                "content": f"Extract from:\n\n{text[:4000]}"
+            }],
+            max_tokens=1000,
+            temperature=0
+        )
+        import json, re
+        raw = response.choices[0].message.content.strip()
+        # Strip markdown code blocks if present
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+        raw = raw.strip()
+        result = json.loads(raw)
+        return result
+    except Exception as e:
+        print(f"File extraction error: {e}")
+        return {
+            "counterparty": "",
+            "contractValue": "",
+            "duration": "",
+            "keyDates": "",
+            "clauses": []
+        }
 
