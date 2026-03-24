@@ -102,28 +102,33 @@ export const contractService = {
     },
 
     generateContractDraft: async (formData) => {
-        // Mock AI Drafting delay
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        try {
+            const response = await fetch('/api/ai/generate-draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            if (!response.ok) throw new Error('Failed');
+            const data = await response.json();
+            return data.draft;
+        } catch (err) {
+            return `# ${formData.title}
 
-        return `
-# ${formData.title || 'Service Agreement'}
-**BETWEEN:** Apeiro CLM System ("the Company")
-**AND:** ${formData.counterpartyName || 'the Counterparty'}
+BETWEEN: Apeiro CLM System ("the Company")
+AND: ${formData.counterpartyName}
 
 ## 1. Scope of Work
-This agreement outlines the provision of services within the ${formData.businessUnit || 'General'} business unit for the category of ${formData.category || 'Professional Services'}.
+This agreement outlines the provision of services within the ${formData.businessUnit} business unit for the category of ${formData.category}.
 
 ## 2. Consideration
-The total value of this contract is fixed at ${formData.contractValue || 'TBD'} for a duration of ${formData.duration || 'TBD'}.
+The total value of this contract is fixed at ${formData.contractValue} for a duration of ${formData.duration}.
 
 ## 3. Risk Assessment
-This contract has been classified as **${formData.riskLevel || 'Medium'} Risk**.
+This contract has been classified as ${formData.riskLevel} Risk.
 
 ## 4. Standard Clauses
-- The parties agree to maintain confidentiality of all proprietary information.
-- This agreement shall be governed by the laws of the applicable jurisdiction.
-- Termination requires 30 days written notice from either party.
-        `;
+Standard terms and conditions apply as per company policy.`;
+        }
     },
 
     verifyContract: async (contractData) => {
@@ -167,59 +172,53 @@ This contract has been classified as **${formData.riskLevel || 'Medium'} Risk**.
         };
     },
 
-    // --- Mock Comment System ---
-    _mockComments: [
-        { id: 'c1', contractId: 'all', clauseId: 1, text: "The inflation cap seems a bit high. Can we negotiate this to 3%?", author: "Legal Lead", timestamp: new Date(Date.now() - 86400000).toISOString(), parentId: null },
-        { id: 'c2', contractId: 'all', clauseId: 1, text: "I agree, 5% is above our current policy standard.", author: "Senior Counsel", timestamp: new Date(Date.now() - 43200000).toISOString(), parentId: 'c1' },
-        { id: 'c3', contractId: 'all', clauseId: 2, text: "Net 30 is standard, but check if we can get Net 45 for this vendor.", author: "Finance Manager", timestamp: new Date(Date.now() - 21600000).toISOString(), parentId: null }
-    ],
-
-    _mockActivity: {
-        'all': [
-            { id: 1, user: 'Aastha Pradhan', action: 'Contract Created', timestamp: new Date(Date.now() - 172800000).toISOString(), type: 'create' },
-            { id: 2, user: 'System', action: 'Assigned to Legal Review', timestamp: new Date(Date.now() - 172000000).toISOString(), type: 'assign' },
-            { id: 3, user: 'Legal Counsel', action: 'Review Started', timestamp: new Date(Date.now() - 86400000).toISOString(), type: 'review' },
-            { id: 4, user: 'Legal Counsel', action: 'Added Comment on Commercial Terms', timestamp: new Date(Date.now() - 43200000).toISOString(), type: 'comment' },
-            { id: 5, user: 'Legal Counsel', action: 'Suggested Change to Liability Clause', timestamp: new Date(Date.now() - 21600000).toISOString(), type: 'edit' }
-        ]
-    },
-
-    getComments: async (contractId) => {
-        // Simulate network delay
-        await new Promise(r => setTimeout(r, 500));
-        return contractService._mockComments;
+    getComments: async (contractId, department = null) => {
+        let url = `/api/contracts/${contractId}/comments`;
+        if (department) {
+            url += `?department=${encodeURIComponent(department)}`;
+        }
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch comments');
+        return await response.json();
     },
 
     getActivityTimeline: async (contractId) => {
         await new Promise(r => setTimeout(r, 300));
-        return contractService._mockActivity['all'] || [];
+        return [];
     },
 
-    addComment: async (contractId, clauseId, text, parentId = null) => {
-        await new Promise(r => setTimeout(r, 800));
-        const newComment = {
-            id: 'c' + Math.random().toString(36).substr(2, 9),
-            contractId,
-            clauseId,
-            text,
-            author: "Legal User (You)", // Mocking current user
-            timestamp: new Date().toISOString(),
-            parentId
-        };
-        contractService._mockComments.push(newComment);
-        return newComment;
+    addComment: async (contractId, clauseId, text, department, author) => {
+        const response = await fetch(`/api/contracts/${contractId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                department: department,
+                clauseId: clauseId,
+                comment: text,
+                commentedBy: author,
+                parentId: null
+            })
+        });
+        if (!response.ok) throw new Error('Failed to add comment');
+        return await response.json();
     },
 
     deleteComment: async (commentId) => {
-        await new Promise(r => setTimeout(r, 500));
-        contractService._mockComments = contractService._mockComments.filter(c => c.id !== commentId);
-        return { success: true };
+        const response = await fetch(`/api/comments/${commentId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete comment');
+        return await response.json();
     },
 
-    escalateContract: async (id, department, reason) => {
-        await new Promise(r => setTimeout(r, 1000));
-        console.log(`Contract ${id} escalated by ${department}. Reason: ${reason}`);
-        return { status: 'success', message: 'Contract escalated to senior management' };
+    escalateContract: async (contractId, department, reason, escalatedBy) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/escalate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ escalatedBy, department, reason })
+        });
+        if (!response.ok) throw new Error('Escalation failed');
+        return await response.json();
     },
 
     // ─── Notification API ───

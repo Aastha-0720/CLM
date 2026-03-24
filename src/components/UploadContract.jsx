@@ -5,7 +5,6 @@ import CsvUploadTab from './upload/CsvUploadTab';
 import EmailBucketTab from './upload/EmailBucketTab';
 import FileUploadTab from './upload/FileUploadTab';
 import CreateContractTab from './upload/CreateContractTab';
-import AiVerificationPanel from './upload/AiVerificationPanel';
 
 const UploadContract = () => {
     const [activeTab, setActiveTab] = useState('csv');
@@ -60,9 +59,6 @@ const UploadContract = () => {
                 />
             </div>
 
-            {contractData && (contractData.counterpartyName || contractData.company || contractData.counterparty) && (
-                <AiVerificationPanel data={contractData} />
-            )}
         </div>
     );
 };

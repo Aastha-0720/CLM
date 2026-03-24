@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Hourglass, CheckCircle, Flag, CircleDollarSign } from 'lucide-react';
 import styles from './DOAApprovals.module.css';
 
 // Removed static doaKpis and pendingApprovals arrays
@@ -127,10 +128,10 @@ const DOAApprovals = ({ user, onNavigate }) => {
     };
 
     const dynamicKpis = [
-        { label: 'Pending Approvals', value: kpis.pending.toString(), icon: '⏳', color: '#F59E0B' },
-        { label: 'Approved This Month', value: kpis.approvedThisMonth.toString(), icon: '✅', color: '#00C9B1' },
-        { label: 'Escalated', value: kpis.escalated.toString(), icon: '🚩', color: '#EF4444' },
-        { label: 'Avg Value Pending', value: `$${(kpis.avgValue / 1000).toFixed(1)}k`, icon: '💰', color: '#3B82F6' },
+        { label: 'Pending Approvals', value: kpis.pending.toString(), icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+        { label: 'Approved This Month', value: kpis.approvedThisMonth.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+        { label: 'Escalated', value: kpis.escalated.toString(), icon: <Flag size={20} strokeWidth={1.5} />, color: '#EF4444' },
+        { label: 'Avg Value Pending', value: `$${(kpis.avgValue / 1000).toFixed(1)}k`, icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#3B82F6' },
     ];
 
     const getStatusStyle = (status) => {
@@ -172,7 +173,7 @@ const DOAApprovals = ({ user, onNavigate }) => {
                     <div className={styles.statsRow}>
                         {dynamicKpis.map((kpi, idx) => (
                             <div key={idx} className={styles.kpiCard}>
-                                <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                                <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                                 <div className={styles.kpiData}>
                                     <div className={styles.kpiValue}>{kpi.value}</div>
                                     <div className={styles.kpiLabel}>{kpi.label}</div>

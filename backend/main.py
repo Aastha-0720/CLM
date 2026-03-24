@@ -1,16 +1,23 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from io import StringIO
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime
+import pathlib
+import shutil
 
 from database import db
-from models import Contract, CAS, DepartmentReviews
+from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId
 import services
 from openai import OpenAI
 import os
+
+UPLOAD_DIR = pathlib.Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 deepseek_client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY", ""),
@@ -135,6 +142,12 @@ async def get_contracts(stage: str = None):
 
 @app.post("/api/contracts/create")
 async def create_single_contract(data: dict = Body(...)):
+    # Parse required reviewers based on clauses
+    clauses = data.get("clauses", [])
+    unique_depts = list({c.get("department", "Legal") for c in clauses if c.get("department")})
+    if not unique_depts:
+        unique_depts = ["Legal"]
+
     contract = Contract(
         title=data.get("title", "Untitled Contract"),
         company=data.get("company", "Unknown"),
@@ -142,7 +155,15 @@ async def create_single_contract(data: dict = Body(...)):
         department=data.get("department", "Legal"),
         stage="Under Review",
         status="Pending",
-        submittedBy=data.get("submittedBy", "Admin")
+        submittedBy=data.get("submittedBy", "Admin"),
+        duration=data.get("duration"),
+        category=data.get("category"),
+        risk_classification=data.get("risk_classification"),
+        business_unit=data.get("business_unit"),
+        contract_owner=data.get("contract_owner"),
+        expiry_date=data.get("expiry_date"),
+        clauses=clauses,
+        required_reviewers=unique_depts,
     )
     result = await db.contracts.insert_one(
         contract.model_dump(by_alias=True, exclude_none=True)
@@ -151,6 +172,120 @@ async def create_single_contract(data: dict = Body(...)):
         "message": "Contract created successfully",
         "id": str(result.inserted_id)
     }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Comments & Reviews API
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.post("/api/contracts/{contract_id}/comments")
+async def add_review_comment(contract_id: str, data: dict = Body(...)):
+    comment = ReviewComment(
+        contractId=contract_id,
+        department=data.get("department", ""),
+        clauseId=data.get("clauseId"),
+        comment=data.get("comment", ""),
+        commentedBy=data.get("commentedBy", "Admin"),
+        parentId=data.get("parentId")
+    )
+    result = await db.review_comments.insert_one(
+        comment.model_dump(by_alias=True, exclude_none=True)
+    )
+    new_doc = await db.review_comments.find_one({"_id": result.inserted_id})
+    if new_doc:
+        new_doc["_id"] = str(new_doc["_id"])
+    return new_doc
+
+@app.get("/api/contracts/{contract_id}/comments")
+async def get_review_comments(contract_id: str, department: Optional[str] = None):
+    query = {"contractId": contract_id}
+    if department:
+        query["department"] = department
+        
+    cursor = db.review_comments.find(query).sort("createdAt", 1)
+    comments = await cursor.to_list(length=1000)
+    for c in comments:
+        c["_id"] = str(c["_id"])
+    return comments
+
+@app.delete("/api/comments/{comment_id}")
+async def delete_review_comment(comment_id: str):
+    try:
+        result = await db.review_comments.delete_one({"_id": PyObjectId(comment_id)})
+        if result.deleted_count == 1:
+            return {"message": "Comment deleted successfully"}
+        raise HTTPException(status_code=404, detail="Comment not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/contracts/{contract_id}/save-review-comment")
+async def save_review_decision(contract_id: str, data: dict = Body(...)):
+    # 1. Save decision as a comment
+    comment = ReviewComment(
+        contractId=contract_id,
+        department=data.get("department", ""),
+        comment=data.get("comment", ""),
+        commentedBy=data.get("reviewedBy", "Admin"),
+        status=data.get("status", "Review")
+    )
+    await db.review_comments.insert_one(
+        comment.model_dump(by_alias=True, exclude_none=True)
+    )
+    
+    # 2. Update contract review data inline for backwards compatibility
+    dept = data.get("department", "")
+    status = data.get("status", "Pending")
+    
+    update_data = {
+        f"reviews.{dept}.status": status,
+        f"reviews.{dept}.comments": data.get("comment", ""),
+        f"reviews.{dept}.reviewedBy": data.get("reviewedBy", "Admin"),
+        f"reviews.{dept}.reviewedAt": datetime.utcnow().isoformat()
+    }
+    
+    await db.contracts.update_one(
+        {"_id": PyObjectId(contract_id)},
+        {"$set": update_data}
+    )
+    return {"message": "Review decision saved successfully"}
+
+@app.post("/api/contracts/{contract_id}/escalate")
+async def escalate_contract(contract_id: str, data: dict = Body(...)):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+        
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+        
+    reason = data.get("reason", "")
+    department = data.get("department", "Unknown")
+    escalatedBy = data.get("escalatedBy", "Admin")
+    
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "escalated": True,
+            "escalatedBy": escalatedBy,
+            "escalatedAt": datetime.utcnow().isoformat(),
+            "escalationReason": reason
+        }}
+    )
+    
+    title = contract.get("title", "Unknown Contract")
+    
+    # Create notification for Manager and CEO roles
+    for target_role in ["Manager", "CEO"]:
+        await db.notifications.insert_one({
+            "for_role": target_role,
+            "message": f"Contract '{title}' escalated by {department}. Reason: {reason}",
+            "contract_id": contract_id,
+            "type": "escalation",
+            "department": department,
+            "read": False,
+            "createdAt": datetime.utcnow().isoformat()
+        })
+        
+    return {"message": "Contract escalated successfully"}
 
 @app.delete("/api/contracts/{contract_id}")
 async def delete_contract(contract_id: str):
@@ -623,6 +758,177 @@ Generate professional CAS key notes in 2-3 sentences."""
         return {"key_notes": key_notes}
     except Exception as e:
         return {"key_notes": "Standard terms applied."}
+
+@app.post("/api/contracts/{contract_id}/documents")
+async def upload_document(
+    contract_id: str,
+    file: UploadFile = File(...),
+    uploadedBy: str = Body("Admin"),
+    category: str = Body("General"),
+    tags: str = Body(""),
+):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+
+    # Check file size
+    contents = await file.read()
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_FILE_SIZE_MB}MB allowed.")
+
+    # Determine version
+    existing_count = await db.documents.count_documents({"contractId": contract_id})
+    version = existing_count + 1
+
+    # Save file to disk
+    contract_dir = UPLOAD_DIR / contract_id
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = f"v{version}_{file.filename}"
+    file_path = contract_dir / safe_name
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    # Save metadata to MongoDB
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    doc = Document(
+        contractId=contract_id,
+        fileName=file.filename,
+        fileType=file.content_type or "application/octet-stream",
+        fileSize=len(contents),
+        storagePath=str(file_path),
+        version=version,
+        uploadedBy=uploadedBy,
+        category=category,
+        tags=tag_list,
+    )
+    result = await db.documents.insert_one(
+        doc.model_dump(by_alias=True, exclude_none=True)
+    )
+    return {
+        "message": "File uploaded successfully",
+        "documentId": str(result.inserted_id),
+        "version": version,
+        "fileName": file.filename,
+        "fileSize": len(contents),
+    }
+
+@app.get("/api/contracts/{contract_id}/documents")
+async def list_documents(contract_id: str):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+    cursor = db.documents.find({"contractId": contract_id}).sort("uploadedAt", -1)
+    docs = await cursor.to_list(length=100)
+    for d in docs:
+        d["id"] = str(d["_id"])
+        del d["_id"]
+    return docs
+
+@app.get("/api/documents/{document_id}/download")
+async def download_document(document_id: str):
+    if not ObjectId.is_valid(document_id):
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+    doc = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    file_path = pathlib.Path(doc["storagePath"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    return FileResponse(
+        path=str(file_path),
+        filename=doc["fileName"],
+        media_type=doc["fileType"],
+    )
+
+@app.delete("/api/documents/{document_id}")
+async def delete_document(document_id: str):
+    if not ObjectId.is_valid(document_id):
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+    doc = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    # Delete file from disk
+    file_path = pathlib.Path(doc["storagePath"])
+    if file_path.exists():
+        file_path.unlink()
+    await db.documents.delete_one({"_id": ObjectId(document_id)})
+    return {"message": "Document deleted successfully"}
+
+@app.post("/api/ai/generate-draft")
+async def generate_draft(data: dict = Body(...)):
+    try:
+        prompt = f"""Generate a professional contract draft for:
+Title: {data.get('title')}
+Counterparty: {data.get('counterpartyName')}
+Value: {data.get('contractValue')}
+Duration: {data.get('duration')}
+Business Unit: {data.get('businessUnit')}
+Category: {data.get('category')}
+Risk Level: {data.get('riskLevel')}
+
+Write a professional contract with sections:
+1. Parties
+2. Scope of Work
+3. Consideration and Payment Terms
+4. Duration
+5. Risk Assessment
+6. Liability and Indemnity
+7. Termination
+8. Confidentiality
+
+Use markdown # for title and ## for sections.
+Keep it professional and concise."""
+
+        response = deepseek_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{
+                "role": "system",
+                "content": "You are a professional contract writer. Write clear, professional contract drafts in markdown format."
+            }, {
+                "role": "user",
+                "content": prompt
+            }],
+            max_tokens=1500
+        )
+        draft = response.choices[0].message.content.strip()
+        return {"draft": draft}
+    except Exception as e:
+        return {
+            "draft": f"# {data.get('title', 'Contract')}\n\n## Standard Terms\nStandard terms applied."
+        }
+
+@app.post("/api/contracts/save-draft")
+async def save_draft(data: dict = Body(...)):
+    try:
+        contract = Contract(
+            title=data.get("title", "Draft Contract"),
+            company=data.get("company", "Unknown"),
+            value=float(data.get("value", 0)),
+            department=data.get("department", "Legal"),
+            stage="Draft",
+            status="Draft",
+            submittedBy=data.get("submittedBy", "Admin"),
+            category=data.get("category", "General"),
+            riskLevel=data.get("riskLevel", "Medium"),
+            duration=data.get("duration", ""),
+            startDate=data.get("startDate", ""),
+            endDate=data.get("endDate", ""),
+            expiryDate=data.get("expiryDate", "")
+        )
+        result = await db.contracts.insert_one(
+            contract.model_dump(by_alias=True, exclude_none=True)
+        )
+        draft_text = data.get("draftText", "")
+        if draft_text:
+            await db.contracts.update_one(
+                {"_id": result.inserted_id},
+                {"$set": {"draftText": draft_text}}
+            )
+        return {
+            "message": "Draft saved successfully",
+            "id": str(result.inserted_id)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ai/extract-file")
 async def extract_file(file: UploadFile = File(...)):

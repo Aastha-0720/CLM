@@ -2,17 +2,21 @@ import React, { useState, useEffect } from 'react';
 import styles from './ReviewPage.module.css';
 import { contractService } from '../services/contractService';
 
-const ComplianceReview = () => {
+const ComplianceReview = ({ user }) => {
     const [selectedContract, setSelectedContract] = useState(null);
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [comment, setComment] = useState('');
     const [editText, setEditText] = useState('');
     const [toast, setToast] = useState(null);
-    const [gateModal, setGateModal] = useState(null);
+    const [reviewMode, setReviewMode] = useState('sequential'); // 'sequential' or 'parallel'
+
+    const [escalateModal, setEscalateModal] = useState(null);
+    const [escalateReason, setEscalateReason] = useState('');
+    const [escalating, setEscalating] = useState(false);
 
     const defaultClauses = [
-        { id: 4, title: 'Compliance Requirements', content: 'Both parties must adhere to GDPR and regional data protection laws. Annual audits may be conducted upon 30 days notice.', status: 'Pending' }
+        { id: 1, title: 'Compliance Requirements', content: 'Both parties must adhere to GDPR and data protection laws.', status: 'Pending' }
     ];
 
     const [clauses, setClauses] = useState(defaultClauses);
@@ -31,11 +35,17 @@ const ComplianceReview = () => {
     const [dateFilter, setDateFilter] = useState('');
     const [queueSearch, setQueueSearch] = useState('');
 
+    const [aiLoading, setAiLoading] = useState(false);
+    const [gateModal, setGateModal] = useState(null);
+
     const loadData = async () => {
         setLoading(true);
         try {
             const data = await contractService.getAllContracts();
-            const filtered = data.filter(c => c.stage === 'Compliance Review');
+            const filtered = data.filter(c => 
+                (c.stage === 'Compliance Review') ||
+                (c.stage === 'Under Review' && (c.review_mode === 'parallel' || reviewMode === 'parallel'))
+            );
             setContracts(filtered || []);
         } catch (e) {
             console.error('Failed to load contracts', e);
@@ -48,7 +58,33 @@ const ComplianceReview = () => {
         loadData();
     }, []);
 
-    const isPrevApproved = (contract) => contract?.reviews?.Finance?.status === 'Approved';
+    const isPrevApproved = (contract) => {
+        if (!contract) return false;
+        if (contract.review_mode === 'parallel' || reviewMode === 'parallel') return true;
+        return contract?.reviews?.Finance?.status === 'Approved';
+    };
+
+    const handleEscalate = async () => {
+        if (!escalateReason.trim()) return;
+        setEscalating(true);
+        try {
+            await contractService.escalateContract(
+                escalateModal.id,
+                user?.role || 'Compliance',
+                escalateReason,
+                user?.name || 'Compliance Officer'
+            );
+            setToast('Contract escalated to Manager');
+            setTimeout(() => setToast(null), 3000);
+            setEscalateModal(null);
+            setEscalateReason('');
+            await loadData();
+        } catch(e) {
+            alert('Escalation failed');
+        } finally {
+            setEscalating(false);
+        }
+    };
 
     const handleAction = async (id, action) => {
         const contract = contracts.find(c => c.id === id);
@@ -99,7 +135,22 @@ const ComplianceReview = () => {
         }
         setSelectedContract(contract);
         setEditText(contract.extractedText || 'Contract text not available for editing in this mock.');
-        setClauses(defaultClauses.map(c => ({ ...c, status: 'Pending' })));
+        
+        // Load real clauses filtered by department
+        const contractClauses = contract.clauses || [];
+        const deptClauses = contractClauses.filter(c => c.department === 'Compliance');
+        
+        if (deptClauses.length > 0) {
+            setClauses(deptClauses.map(c => ({ 
+                id: c.id || Math.random().toString(), 
+                title: c.type || 'Clause', 
+                content: c.text, 
+                status: 'Pending' 
+            })));
+        } else {
+            setClauses([]);
+        }
+
         setActiveClauseComments(null);
         setComments([]);
         loadComments(contract.id);
@@ -121,7 +172,8 @@ const ComplianceReview = () => {
                 selectedContract.id,
                 activeClauseComments,
                 newComment,
-                replyingTo
+                'Compliance',
+                'Compliance Officer'
             );
             setComments(prev => [...prev, added]);
             setNewComment('');
@@ -134,7 +186,7 @@ const ComplianceReview = () => {
     const handleDeleteComment = async (id) => {
         try {
             await contractService.deleteComment(id);
-            setComments(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+            setComments(prev => prev.filter(c => c.id !== id && c._id !== id));
         } catch (e) {
             alert("Failed to delete comment");
         }
@@ -149,6 +201,8 @@ const ComplianceReview = () => {
         }
     };
 
+    // Removed mock loadAIClauses since we use real db clauses now
+
     const toggleClauseStatus = (clauseId) => {
         setClauses(prev => prev.map(c => {
             if (c.id === clauseId) {
@@ -159,7 +213,8 @@ const ComplianceReview = () => {
     };
 
     const getDeadlineInfo = (contract) => {
-        const daysPending = contract.daysPending || 2;
+        const created = contract.createdAt ? new Date(contract.createdAt) : new Date();
+        const daysPending = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
         if (daysPending > 5) return { label: 'OVERDUE', class: styles.overdue, escalation: true };
         if (daysPending > 3) return { label: 'Approaching Deadline', class: styles.warning, escalation: false };
         return { label: 'Due in 3 days', class: styles.onTrack, escalation: false };
@@ -167,7 +222,8 @@ const ComplianceReview = () => {
 
     const filteredContracts = contracts.filter(c => {
         if (statusFilter !== 'All') {
-            const daysPending = c.daysPending || 2;
+            const created = c.createdAt ? new Date(c.createdAt) : new Date();
+            const daysPending = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
             if (statusFilter === 'Overdue' && daysPending <= 5) return false;
             if (statusFilter === 'Pending' && c.status === 'Reviewed') return false;
             if (statusFilter === 'Reviewed' && c.status !== 'Reviewed') return false;
@@ -232,6 +288,19 @@ const ComplianceReview = () => {
                                     onChange={(e) => setQueueSearch(e.target.value)}
                                 />
                             </div>
+                        </div>
+
+                        <div className={styles.filterGroup}>
+                            <label className={styles.filterLabel}>Review Mode</label>
+                            <select
+                                className={styles.filterSelect}
+                                value={reviewMode}
+                                onChange={(e) => setReviewMode(e.target.value)}
+                                style={{ fontWeight: '600', color: reviewMode === 'parallel' ? '#8b5cf6' : '#00C9B1' }}
+                            >
+                                <option value="sequential">Sequential Workflow</option>
+                                <option value="parallel">Parallel Workflow</option>
+                            </select>
                         </div>
 
                         <div className={styles.filterGroup}>
@@ -332,7 +401,15 @@ const ComplianceReview = () => {
                                         </div>
                                         {deadline.escalation && (
                                             <div className={styles.escalationWarning}>
-                                                ⚠️ ESCALATION: OVERDUE BY {c.daysPending - 5} DAYS
+                                                OVERDUE —
+                                                {c.escalated
+                                                    ? <span style={{color:'#f87171', marginLeft:'6px'}}>Already Escalated</span>
+                                                    : <button
+                                                        className={styles.btn}
+                                                        style={{marginLeft:'8px', background:'#dc2626', color:'#fff', padding:'2px 10px', fontSize:'12px'}}
+                                                        onClick={() => setEscalateModal(c)}
+                                                      >Escalate</button>
+                                                }
                                             </div>
                                         )}
                                         <div className={styles.actions}>
@@ -446,45 +523,59 @@ const ComplianceReview = () => {
 
                                         <div className={styles.clauseSectionContainer}>
                                             <span className={styles.sectionLabel} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', display: 'block' }}>Clause-Based Review</span>
+                                            {aiLoading && (
+                                                <div style={{ padding: '12px', color: '#00C9B1', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: '14px', height: '14px', border: '2px solid #00C9B1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                                    AI analyzing contract clauses...
+                                                </div>
+                                            )}
                                             <div className={styles.clauseList}>
-                                                {clauses.map(clause => (
-                                                    <div key={clause.id} className={styles.clauseCard} style={{ marginBottom: '12px', padding: '16px' }}>
-                                                        <div className={styles.clauseHeader}>
-                                                            <h4 className={styles.clauseTitle}>{clause.title}</h4>
-                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                <span className={`${styles.clauseStatus} ${clause.status === 'Reviewed' ? styles.clauseReviewed : styles.clausePending}`}>
-                                                                    {clause.status === 'Reviewed' ? '✓ Reviewed' : 'Pending'}
-                                                                </span>
+                                                {clauses.length === 0 ? (
+                                                    <div style={{ textAlign: 'center', padding: '30px 20px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>No clauses found for this department.</div>
+                                                    </div>
+                                                ) : (
+                                                    clauses.map(clause => (
+                                                        <div key={clause.id} className={styles.clauseCard} style={{ marginBottom: '12px', padding: '16px' }}>
+                                                            <div className={styles.clauseHeader}>
+                                                                <h4 className={styles.clauseTitle}>{clause.title}</h4>
+                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                    <span className={`${styles.clauseStatus} ${clause.status === 'Reviewed' ? styles.clauseReviewed : styles.clausePending}`}>
+                                                                        {clause.status === 'Reviewed' ? '✓ Reviewed' : 'Pending'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className={styles.clauseBody}>
+                                                                {clause.content}
+                                                            </div>
+
+                                                            <div className={styles.clauseFooter}>
+                                                                <button
+                                                                    className={styles.actionLink}
+                                                                    style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                                    onClick={() => setActiveClauseComments(clause.id)}
+                                                                >
+                                                                    <span>💬</span> Comments
+                                                                    <span className={styles.commentCount}>
+                                                                        {comments.filter(c => c.clauseId === clause.id).length}
+                                                                    </span>
+                                                                </button>
+
+                                                                <button
+                                                                    className={`${styles.clauseActionBtn} ${clause.status === 'Reviewed' ? styles.btnUndo : styles.btnMark}`}
+                                                                    onClick={() => toggleClauseStatus(clause.id)}
+                                                                >
+                                                                    {clause.status === 'Reviewed' ? 'Undo Review' : 'Mark as Reviewed'}
+                                                                </button>
                                                             </div>
                                                         </div>
-
-                                                        <div className={styles.clauseBody}>
-                                                            {clause.content}
-                                                        </div>
-
-                                                        <div className={styles.clauseFooter}>
-                                                            <button
-                                                                className={styles.actionLink}
-                                                                style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                                onClick={() => setActiveClauseComments(clause.id)}
-                                                            >
-                                                                <span>💬</span> Comments
-                                                                <span className={styles.commentCount}>
-                                                                    {comments.filter(c => c.clauseId === clause.id).length}
-                                                                </span>
-                                                            </button>
-
-                                                            <button
-                                                                className={`${styles.clauseActionBtn} ${clause.status === 'Reviewed' ? styles.btnUndo : styles.btnMark}`}
-                                                                onClick={() => toggleClauseStatus(clause.id)}
-                                                            >
-                                                                {clause.status === 'Reviewed' ? 'Undo Review' : 'Mark as Reviewed'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
+
 
                                         <div className={styles.paneSection} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                                             <span className={styles.sectionLabel}>Internal Comments</span>
@@ -607,6 +698,46 @@ const ComplianceReview = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {escalateModal && (
+                <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',
+                             display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+                    <div style={{background:'var(--bg-card)',borderRadius:'12px',
+                                 padding:'28px',width:'420px',boxShadow:'0 20px 60px rgba(0,0,0,0.4)'}}>
+                        <h3 style={{marginBottom:'8px',color:'var(--text-primary)'}}>
+                            Escalate Contract
+                        </h3>
+                        <p style={{color:'var(--text-muted)',fontSize:'13px',marginBottom:'16px'}}>
+                            "{escalateModal.title}" will be escalated to Manager & CEO
+                        </p>
+                        <textarea
+                            value={escalateReason}
+                            onChange={e => setEscalateReason(e.target.value)}
+                            placeholder="Reason for escalation..."
+                            rows={4}
+                            style={{width:'100%',padding:'10px',borderRadius:'8px',
+                                    border:'1px solid var(--border)',background:'var(--bg-input)',
+                                    color:'var(--text-primary)',fontSize:'14px',resize:'vertical'}}
+                        />
+                        <div style={{display:'flex',gap:'10px',marginTop:'16px',justifyContent:'flex-end'}}>
+                            <button
+                                onClick={() => { setEscalateModal(null); setEscalateReason(''); }}
+                                style={{padding:'8px 16px',borderRadius:'8px',border:'1px solid var(--border)',
+                                        background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}
+                            >Cancel</button>
+                            <button
+                                onClick={handleEscalate}
+                                disabled={escalating || !escalateReason.trim()}
+                                style={{padding:'8px 16px',borderRadius:'8px',border:'none',
+                                        background:'#dc2626',color:'#fff',cursor:'pointer',
+                                        opacity: escalating ? 0.7 : 1}}
+                            >
+                                {escalating ? 'Escalating...' : 'Confirm Escalate'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

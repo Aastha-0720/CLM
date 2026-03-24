@@ -31,7 +31,9 @@ def generate_cas_document(
     contract_id: str, 
     contract_title: str, 
     value: float, 
-    initiator: str
+    initiator: str,
+    business_unit: str = "Operations",
+    department: str = "Legal"
 ) -> CAS:
     approver = determine_doa_approver(value)
     return CAS(
@@ -42,8 +44,8 @@ def generate_cas_document(
         doaApprover=approver,
         status="Pending Approval",
         createdAt=datetime.utcnow().isoformat(),
-        department="Legal",
-        businessUnit="Operations",
+        department=department,
+        businessUnit=business_unit,
         agreementType="Master Service Agreement",
         keyNotes="Standard terms applied. No high-risk deviations noted.",
         approvalChain=[

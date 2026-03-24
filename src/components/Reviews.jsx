@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Scale, CircleDollarSign, ShieldCheck, ShoppingCart } from 'lucide-react';
 import styles from './Reviews.module.css';
 import LegalReview from './LegalReview';
 import FinanceReview from './FinanceReview';
@@ -39,16 +40,16 @@ const Reviews = ({ user }) => {
     }, []);
 
     const departments = [
-        { id: 'Legal', name: 'Legal Review', icon: '⚖️', color: '#10B981', component: <LegalReview /> },
-        { id: 'Finance', name: 'Finance Review', icon: '💰', color: '#3B82F6', component: <FinanceReview /> },
-        { id: 'Compliance', name: 'Compliance Review', icon: '🛡️', color: '#A855F7', component: <ComplianceReview /> },
-        { id: 'Procurement', name: 'Procurement Review', icon: '🛒', color: '#F59E0B', component: <ProcurementReview /> },
+        { id: 'Legal', name: 'Legal Review', icon: <Scale size={20} strokeWidth={1.5} />, color: '#10B981', component: <LegalReview user={user} /> },
+        { id: 'Finance', name: 'Finance Review', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#3B82F6', component: <FinanceReview user={user} /> },
+        { id: 'Compliance', name: 'Compliance Review', icon: <ShieldCheck size={20} strokeWidth={1.5} />, color: '#A855F7', component: <ComplianceReview user={user} /> },
+        { id: 'Procurement', name: 'Procurement Review', icon: <ShoppingCart size={20} strokeWidth={1.5} />, color: '#F59E0B', component: <ProcurementReview user={user} /> },
     ];
 
-    if (user?.role === 'Legal') return <LegalReview />;
-    if (user?.role === 'Finance') return <FinanceReview />;
-    if (user?.role === 'Compliance') return <ComplianceReview />;
-    if (user?.role === 'Procurement') return <ProcurementReview />;
+    if (user?.role === 'Legal') return <LegalReview user={user} />;
+    if (user?.role === 'Finance') return <FinanceReview user={user} />;
+    if (user?.role === 'Compliance') return <ComplianceReview user={user} />;
+    if (user?.role === 'Procurement') return <ProcurementReview user={user} />;
 
     if (activeDepartment) {
         const activeItem = departments.find(d => d.id === activeDepartment);
@@ -77,7 +78,7 @@ const Reviews = ({ user }) => {
                 {departments.map(dept => (
                     <div key={dept.id} className={styles.reviewCard}>
                         <div className={styles.cardHeader}>
-                            <div className={styles.cardIcon} style={{ backgroundColor: `${dept.color}15`, color: dept.color }}>
+                            <div className={styles.cardIcon} style={{ color: dept.color }}>
                                 {dept.icon}
                             </div>
                             <div className={styles.cardTitle}>{dept.name}</div>

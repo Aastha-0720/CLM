@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
 import styles from './Dashboard.module.css';
+import { 
+    FileText, Search, Hourglass, PenTool, AlertTriangle, 
+    CircleDollarSign, CheckCircle, Minus, FileEdit, ClipboardList, 
+    Calendar, AlertCircle, Scale, Clock, Shield, ShoppingCart, 
+    ArrowUpCircle, Gem, TrendingUp, LayoutGrid, List 
+} from 'lucide-react';
 
 const kpiData = [
-    { id: 'active', label: 'Total Active Contracts', value: '1,284', icon: '📄', color: '#00C9B1', trend: '+12%' },
-    { id: 'pending', label: 'Pending Approvals', value: '24', icon: '⏳', color: '#F59E0B', trend: '+5' },
-    { id: 'review', label: 'Contracts Under Review', value: '42', icon: '🔍', color: '#3B82F6', trend: '-3' },
-    { id: 'signatures', label: 'Pending Signatures', value: '18', icon: '🖋️', color: '#8B5CF6', trend: '+2' },
-    { id: 'expiring', label: 'Expiring This Month', value: '14', icon: '⚠️', color: '#EF4444', trend: 'Critical' },
-    { id: 'pipeline', label: 'Pipeline Deal Value', value: '$4.2M', icon: '💰', color: '#10B981', trend: '+18%' },
+    { id: 'active', label: 'Total Active Contracts', value: '1,284', icon: <FileText size={20} strokeWidth={1.5} />, color: '#00C9B1', trend: '+12%' },
+    { id: 'pending', label: 'Pending Approvals', value: '24', icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B', trend: '+5' },
+    { id: 'review', label: 'Contracts Under Review', value: '42', icon: <Search size={20} strokeWidth={1.5} />, color: '#3B82F6', trend: '-3' },
+    { id: 'signatures', label: 'Pending Signatures', value: '18', icon: <PenTool size={20} strokeWidth={1.5} />, color: '#8B5CF6', trend: '+2' },
+    { id: 'expiring', label: 'Expiring This Month', value: '14', icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444', trend: 'Critical' },
+    { id: 'pipeline', label: 'Pipeline Deal Value', value: '$4.2M', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#10B981', trend: '+18%' },
 ];
 
 const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const [stats, setStats] = React.useState(null);
     const [contracts, setContracts] = React.useState([]);
     const [selectedRecentContract, setSelectedRecentContract] = React.useState(null);
-    const [isRecentExpanded, setIsRecentExpanded] = React.useState(false);
+    const [isRecentExpanded, setIsRecentExpanded] = React.useState(true);
     const [toast, setToast] = React.useState('');
     const [deleteConfirm, setDeleteConfirm] = React.useState(null); // stores contract id to delete
+    const [viewMode, setViewMode] = React.useState('card'); // 'card' | 'list'
 
     const showToast = (msg) => {
         setToast(msg);
@@ -73,11 +80,11 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const pendingApprovalCount = contracts.filter(c => c.status === 'Pending').length;
 
     const enhancedKpis = [
-        { id: 'total', label: 'Total Contracts', value: contracts.length, icon: '📄', color: '#00C9B1' },
-        { id: 'review', label: 'Under Review', value: underReviewCount, icon: '🔍', color: '#3B82F6' },
-        { id: 'pending', label: 'Pending Approvals', value: pendingApprovalCount, icon: '⏳', color: '#F59E0B' },
-        { id: 'signatures', label: 'Awaiting Signature', value: awaitingSignatureCount, icon: '🖋️', color: '#8B5CF6' },
-        { id: 'expiring', label: 'Expiring Soon', value: expiringSoonCount, icon: '⚠️', color: '#EF4444' }
+        { id: 'total', label: 'Total Contracts', value: contracts.length, icon: <FileText size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+        { id: 'review', label: 'Under Review', value: underReviewCount, icon: <Search size={20} strokeWidth={1.5} />, color: '#3B82F6' },
+        { id: 'pending', label: 'Pending Approvals', value: pendingApprovalCount, icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+        { id: 'signatures', label: 'Awaiting Signature', value: awaitingSignatureCount, icon: <PenTool size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
+        { id: 'expiring', label: 'Expiring Soon', value: expiringSoonCount, icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' }
     ];
 
     // Donut Chart Real Data
@@ -130,7 +137,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                         onClick={() => setActiveKpi(kpi)}
                         style={{ borderTop: `4px solid ${kpi.color}` }}
                     >
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <div className={styles.kpiValue}>{kpi.value}</div>
                             <div className={styles.kpiLabel}>{kpi.label}</div>
@@ -210,16 +217,16 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                     const isPending = selectedRecentContract.stage === `${dept} Review` ||
                                         (selectedRecentContract.stage === 'Under Review' && !isApproved);
 
-                                    let icon = '⏳';
+                                    let icon = <Hourglass size={20} strokeWidth={1.5} />;
                                     let badgeClass = styles.warning;
                                     let label = 'Pending';
 
                                     if (isApproved) {
-                                        icon = '✅';
+                                        icon = <CheckCircle size={20} strokeWidth={1.5} />;
                                         badgeClass = styles.good;
                                         label = 'Approved';
                                     } else if (!isPending && selectedRecentContract.stage === 'Draft') {
-                                        icon = '—';
+                                        icon = <Minus size={20} strokeWidth={1.5} />;
                                         badgeClass = '';
                                         label = 'Not Started';
                                     }
@@ -346,56 +353,105 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                 <div className={styles.collapsibleCard}>
                     <div className={styles.collapsibleHeader} onClick={() => setIsRecentExpanded(!isRecentExpanded)}>
                         <div className={styles.headerLeft}>
-                            <span className={styles.headerIcon}>📋</span>
+                            <span className={styles.headerIcon}><ClipboardList size={20} strokeWidth={1.5} /></span>
                             <span>Recent High-Priority Contracts</span>
                         </div>
                         <div className={styles.headerRight}>
                             <span className={styles.countBadge}>{contracts.length} contracts</span>
-                            <span className={styles.chevron}>{isRecentExpanded ? '▲' : '▼'}</span>
+                            <div style={{display:'flex', gap:'4px', background:'rgba(255,255,255,0.05)',
+                                         borderRadius:'8px', padding:'3px'}}>
+                                <button
+                                    onClick={() => setViewMode('card')}
+                                    style={{
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        padding:'4px 8px', borderRadius:'6px', border:'none', cursor:'pointer',
+                                        background: viewMode === 'card' ? 'var(--bg-card)' : 'transparent',
+                                        color: viewMode === 'card' ? 'var(--primary,#1a56db)' : 'var(--text-muted,#6b7280)',
+                                        boxShadow: viewMode === 'card' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    <LayoutGrid size={16} strokeWidth={1.5} />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    style={{
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        padding:'4px 8px', borderRadius:'6px', border:'none', cursor:'pointer',
+                                        background: viewMode === 'list' ? 'var(--bg-card)' : 'transparent',
+                                        color: viewMode === 'list' ? 'var(--primary,#1a56db)' : 'var(--text-muted,#6b7280)',
+                                        boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    <List size={16} strokeWidth={1.5} />
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div className={`${styles.collapsibleContent} ${isRecentExpanded ? styles.expanded : ''}`}>
                         <div className={styles.collapsibleBody}>
                             {contracts.length > 0 ? (
-                                <div className={styles.recentCardsGrid} style={{ marginTop: 0 }}>
-                                    {contracts.map((item) => (
-                                        <div key={item.id} className={styles.recentCard}>
-                                            <div>
-                                                <div className={styles.recentCardTitle}>{item.title}</div>
-                                                <div className={styles.recentCardCompany}>{item.company}</div>
+                                viewMode === 'card' ? (
+                                    <div className={styles.recentCardsGrid} style={{ marginTop: 0 }}>
+                                        {contracts.map((item) => (
+                                            <div key={item.id} className={styles.recentCard}>
+                                                <div>
+                                                    <div className={styles.recentCardTitle}>{item.title}</div>
+                                                    <div className={styles.recentCardCompany}>{item.company}</div>
+                                                </div>
+                                                <div className={styles.recentCardMeta}>
+                                                    <span>Value<span className={styles.recentCardValue}>${(item.value || 0).toLocaleString()}</span></span>
+                                                    <span>Dept<strong style={{ color: 'var(--text-primary)' }}>{item.department}</strong></span>
+                                                </div>
+                                                <div className={styles.statusBadgeWrap}>
+                                                    <span className={`${styles.statusBadge} ${item.status === 'Approved' ? styles.good : item.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                        {item.status}
+                                                    </span>
+                                                </div>
+                                                <button className={styles.viewDetailsBtn} onClick={() => setSelectedRecentContract(item)}>
+                                                    View Details
+                                                </button>
                                             </div>
-
-                                            <div className={styles.recentCardMeta}>
-                                                <span>
-                                                    Value
-                                                    <span className={styles.recentCardValue}>${(item.value || 0).toLocaleString()}</span>
-                                                </span>
-                                                <span>
-                                                    Dept
-                                                    <strong style={{ color: 'var(--text-primary)' }}>{item.department}</strong>
-                                                </span>
-                                            </div>
-
-                                            <div className={styles.statusBadgeWrap}>
-                                                <span className={`${styles.statusBadge} ${item.status === 'Approved' ? styles.good :
-                                                    item.status === 'Rejected' ? styles.critical : styles.warning
-                                                    }`}>
-                                                    {item.status}
-                                                </span>
-                                            </div>
-
-                                            <button
-                                                className={styles.viewDetailsBtn}
-                                                onClick={() => setSelectedRecentContract(item)}
-                                            >
-                                                View Details
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom:'1px solid var(--border-color,#e5e7eb)' }}>
+                                                {['Title','Company','Value','Dept','Status','Action'].map(h => (
+                                                    <th key={h} style={{ textAlign:'left', padding:'8px 12px', fontSize:'12px',
+                                                        fontWeight:600, color:'var(--text-muted,#6b7280)',
+                                                        textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {contracts.map((item, idx) => (
+                                                <tr key={item.id} style={{ borderBottom:'1px solid var(--border-color,#e5e7eb)',
+                                                    background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+                                                    <td style={{ padding:'10px 12px', fontSize:'13px', fontWeight:500, color:'var(--text-primary)' }}>{item.title}</td>
+                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-muted)' }}>{item.company}</td>
+                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-primary)' }}>${(item.value || 0).toLocaleString()}</td>
+                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-muted)' }}>{item.department}</td>
+                                                    <td style={{ padding:'10px 12px' }}>
+                                                        <span className={`${styles.statusBadge} ${item.status === 'Approved' ? styles.good : item.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding:'10px 12px' }}>
+                                                        <button className={styles.viewDetailsBtn} onClick={() => setSelectedRecentContract(item)}>
+                                                            View Details
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )
                             ) : (
-                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                <div style={{ textAlign:'center', padding:'40px', color:'var(--text-muted)' }}>
                                     No contracts found. Upload contracts to get started.
                                 </div>
                             )}
@@ -478,13 +534,13 @@ const SalesDashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'My Submitted Contracts', value: contracts.length.toString(), icon: '📝', color: '#00C9B1' },
-                    { label: 'Under Review', value: underReview.toString(), icon: '🔍', color: '#F59E0B' },
-                    { label: 'Approved This Month', value: approved.toString(), icon: '✅', color: '#10B981' },
-                    { label: 'My Pipeline Value', value: pipelineValue > 0 ? formatCurrency(pipelineValue) : '$0.0M', icon: '💰', color: '#3B82F6' },
+                    { label: 'My Submitted Contracts', value: contracts.length.toString(), icon: <FileEdit size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Under Review', value: underReview.toString(), icon: <Search size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Approved This Month', value: approved.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#10B981' },
+                    { label: 'My Pipeline Value', value: pipelineValue > 0 ? formatCurrency(pipelineValue) : '$0.0M', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -600,17 +656,17 @@ const LegalDashboard = () => {
             {/* ── Primary KPIs ── */}
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'Assigned to Me', value: assignedToMe.toString(), icon: '📋', color: '#00C9B1' },
-                    { label: 'Due Today', value: dueToday.toString(), icon: '📅', color: '#3B82F6' },
-                    { label: 'Overdue', value: overdue.toString(), icon: '⚠️', color: '#EF4444' },
-                    { label: 'High Risk', value: highRisk.toString(), icon: '🔴', color: '#DC2626' },
-                    { label: 'Pending Reviews', value: pendingCount.toString(), icon: '⚖️', color: '#F59E0B' },
-                    { label: 'Completed Today', value: completedToday.toString(), icon: '✅', color: '#10B981' },
-                    { label: 'Avg Review Time', value: `${avgTime}d`, icon: '⏱️', color: '#8B5CF6' },
-                    { label: 'Total Contracts', value: contracts.length.toString(), icon: '📄', color: '#6366F1' },
+                    { label: 'Assigned to Me', value: assignedToMe.toString(), icon: <ClipboardList size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Due Today', value: dueToday.toString(), icon: <Calendar size={20} strokeWidth={1.5} />, color: '#3B82F6' },
+                    { label: 'Overdue', value: overdue.toString(), icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' },
+                    { label: 'High Risk', value: highRisk.toString(), icon: <AlertCircle size={20} strokeWidth={1.5} />, color: '#DC2626' },
+                    { label: 'Pending Reviews', value: pendingCount.toString(), icon: <Scale size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Completed Today', value: completedToday.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#10B981' },
+                    { label: 'Avg Review Time', value: `${avgTime}d`, icon: <Clock size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
+                    { label: 'Total Contracts', value: contracts.length.toString(), icon: <FileText size={20} strokeWidth={1.5} />, color: '#6366F1' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -737,13 +793,13 @@ const FinanceDashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'Pending Finance Reviews', value: pendingCount.toString(), icon: '💰', color: '#F59E0B' },
-                    { label: 'Completed Today', value: completedToday.toString(), icon: '✅', color: '#00C9B1' },
-                    { label: 'Overdue', value: overdue.toString(), icon: '⚠️', color: '#EF4444' },
-                    { label: 'Avg Review Time', value: '0.8 days', icon: '⏱️', color: '#3B82F6' },
+                    { label: 'Pending Finance Reviews', value: pendingCount.toString(), icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Completed Today', value: completedToday.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Overdue', value: overdue.toString(), icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' },
+                    { label: 'Avg Review Time', value: '0.8 days', icon: <Clock size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -782,13 +838,13 @@ const ComplianceDashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'Pending Compliance', value: pendingCount.toString(), icon: '🛡️', color: '#F59E0B' },
-                    { label: 'Completed Today', value: completedToday.toString(), icon: '✅', color: '#00C9B1' },
-                    { label: 'Overdue', value: overdue.toString(), icon: '⚠️', color: '#EF4444' },
-                    { label: 'Avg Review Time', value: '1.5 days', icon: '⏱️', color: '#3B82F6' },
+                    { label: 'Pending Compliance', value: pendingCount.toString(), icon: <Shield size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Completed Today', value: completedToday.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Overdue', value: overdue.toString(), icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' },
+                    { label: 'Avg Review Time', value: '1.5 days', icon: <Clock size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -827,13 +883,13 @@ const ProcurementDashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'Pending Procurement', value: pendingCount.toString(), icon: '🛒', color: '#F59E0B' },
-                    { label: 'Completed Today', value: completedToday.toString(), icon: '✅', color: '#00C9B1' },
-                    { label: 'Overdue', value: overdue.toString(), icon: '⚠️', color: '#EF4444' },
-                    { label: 'Avg Review Time', value: '2.1 days', icon: '⏱️', color: '#3B82F6' },
+                    { label: 'Pending Procurement', value: pendingCount.toString(), icon: <ShoppingCart size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Completed Today', value: completedToday.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Overdue', value: overdue.toString(), icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' },
+                    { label: 'Avg Review Time', value: '2.1 days', icon: <Clock size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -874,13 +930,13 @@ const ManagerDashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'Pending Approvals', value: contracts.length.toString(), icon: '⏳', color: '#F59E0B' },
-                    { label: 'Approved This Month', value: '15', icon: '✅', color: '#00C9B1' }, // Hard to calculate retrospectively without proper tracking, leaving mock for now or 0
-                    { label: 'Escalated to VP', value: '0', icon: '⬆️', color: '#8B5CF6' },
-                    { label: 'Avg Approval Time', value: '--', icon: '⏱️', color: '#3B82F6' },
+                    { label: 'Pending Approvals', value: contracts.length.toString(), icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'Approved This Month', value: '15', icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' }, // Hard to calculate retrospectively without proper tracking, leaving mock for now or 0
+                    { label: 'Escalated to VP', value: '0', icon: <ArrowUpCircle size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
+                    { label: 'Avg Approval Time', value: '--', icon: <Clock size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>
@@ -950,13 +1006,13 @@ const CEODashboard = () => {
         <>
             <div className={styles.kpiGrid}>
                 {[
-                    { label: 'VP Pending Approvals', value: contracts.length.toString(), icon: '✍️', color: '#F59E0B' },
-                    { label: 'High Value Contracts', value: contracts.length.toString(), icon: '💎', color: '#8B5CF6' },
-                    { label: 'Total Pipeline Value', value: '--', icon: '💰', color: '#00C9B1' },
-                    { label: 'Company Win Rate', value: '--', icon: '📈', color: '#3B82F6' },
+                    { label: 'VP Pending Approvals', value: contracts.length.toString(), icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
+                    { label: 'High Value Contracts', value: contracts.length.toString(), icon: <Gem size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
+                    { label: 'Total Pipeline Value', value: '--', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#00C9B1' },
+                    { label: 'Company Win Rate', value: '--', icon: <TrendingUp size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
                     <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color, backgroundColor: `${kpi.color}15` }}>{kpi.icon}</div>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
                         <div className={styles.kpiInfo}>
                             <span className={styles.kpiValue}>{kpi.value}</span>
                             <span className={styles.kpiLabel}>{kpi.label}</span>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, CircleDollarSign, Clock, AlertTriangle } from 'lucide-react';
 import styles from './Reports.module.css';
 import { contractService } from '../services/contractService';
 
@@ -257,28 +258,28 @@ const Reports = ({ user }) => {
             {/* ── KPI Row ── */}
             <div className={styles.statsRow}>
                 <div className={styles.kpiCard}>
-                    <div className={styles.kpiIcon} style={{ backgroundColor: '#00C9B115', color: '#00C9B1' }}>📄</div>
+                    <div className={styles.kpiIcon} style={{ color: '#00C9B1' }}><FileText size={20} strokeWidth={1.5} /></div>
                     <div className={styles.kpiData}>
                         <div className={styles.kpiValue}>{totalContracts}</div>
                         <div className={styles.kpiLabel}>Total Contracts</div>
                     </div>
                 </div>
                 <div className={styles.kpiCard}>
-                    <div className={styles.kpiIcon} style={{ backgroundColor: '#3B82F615', color: '#3B82F6' }}>💰</div>
+                    <div className={styles.kpiIcon} style={{ color: '#3B82F6' }}><CircleDollarSign size={20} strokeWidth={1.5} /></div>
                     <div className={styles.kpiData}>
                         <div className={styles.kpiValue}>${(totalVal / 1000).toFixed(1)}k</div>
                         <div className={styles.kpiLabel}>Total Value</div>
                     </div>
                 </div>
                 <div className={styles.kpiCard}>
-                    <div className={styles.kpiIcon} style={{ backgroundColor: '#A855F715', color: '#A855F7' }}>⏱</div>
+                    <div className={styles.kpiIcon} style={{ color: '#A855F7' }}><Clock size={20} strokeWidth={1.5} /></div>
                     <div className={styles.kpiData}>
                         <div className={styles.kpiValue}>{avgReviewTime} days</div>
                         <div className={styles.kpiLabel}>Avg. Review Time</div>
                     </div>
                 </div>
                 <div className={styles.kpiCard}>
-                    <div className={styles.kpiIcon} style={{ backgroundColor: '#EF444415', color: '#EF4444' }}>⚠️</div>
+                    <div className={styles.kpiIcon} style={{ color: '#EF4444' }}><AlertTriangle size={20} strokeWidth={1.5} /></div>
                     <div className={styles.kpiData}>
                         <div className={styles.kpiValue}>{delayedContracts.length}</div>
                         <div className={styles.kpiLabel}>Delayed Contracts</div>

@@ -9,6 +9,9 @@ import Dashboard from './Dashboard';
 import Reviews from './Reviews';
 import Settings from './Settings';
 import { contractService } from '../services/contractService';
+import { LayoutDashboard, Upload, Scale, FileText, 
+         ClipboardCheck, BarChart2, Settings as SettingsIcon,
+         Bell, Search, Sun, Moon } from 'lucide-react';
 
 const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const [selectedEmail, setSelectedEmail] = useState(null);
@@ -30,13 +33,13 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const notifRef = useRef(null);
 
     const allNavItems = [
-        { name: 'Dashboard', icon: '📊' },
-        { name: 'Upload Contracts', icon: '📤' },
-        { name: 'Reviews', icon: '⚖️' },
-        { name: 'CAS', icon: '📄' },
-        { name: 'DOA Approvals', icon: '✍️' },
-        { name: 'Reports', icon: '📋' },
-        { name: 'Settings', icon: '⚙️' },
+        { name: 'Dashboard', icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { name: 'Upload Contracts', icon: <Upload size={20} strokeWidth={1.5} /> },
+        { name: 'Reviews', icon: <Scale size={20} strokeWidth={1.5} /> },
+        { name: 'CAS', icon: <FileText size={20} strokeWidth={1.5} /> },
+        { name: 'DOA Approvals', icon: <ClipboardCheck size={20} strokeWidth={1.5} /> },
+        { name: 'Reports', icon: <BarChart2 size={20} strokeWidth={1.5} /> },
+        { name: 'Settings', icon: <SettingsIcon size={20} strokeWidth={1.5} /> },
     ];
 
     const getNavItemsByRole = (role) => {
@@ -202,7 +205,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
 
                     <div className={styles.headerActions}>
                         <div className={styles.searchContainer} ref={searchRef}>
-                            <span className={styles.searchIcon}>🔍</span>
+                            <span className={styles.searchIcon}><Search size={20} strokeWidth={1.5} /></span>
                             <input
                                 type="text"
                                 placeholder="Global search..."
@@ -257,11 +260,11 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            {theme === 'dark' ? '☀️' : '🌙'}
+                            {theme === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
                         </button>
 
                         <div className={styles.notifTrigger} ref={notifRef} onClick={() => setShowNotifs(!showNotifs)}>
-                            <span className={styles.notifIcon}>🔔</span>
+                            <span className={styles.notifIcon}><Bell size={20} strokeWidth={1.5} /></span>
                             {notifs.length > 0 && (
                                 <span className={styles.notifBadge}>{notifs.length}</span>
                             )}
@@ -405,7 +408,7 @@ const NavItem = ({ item, active, onClick }) => (
         className={`${styles.navItem} ${active ? styles.active : ''}`}
         onClick={onClick}
     >
-        <span className={styles.icon}>{item.icon}</span>
+        {item.icon}
         <span className={styles.label}>{item.name}</span>
         {active && <div className={styles.activeIndicator}></div>}
     </button>

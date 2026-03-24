@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styles from '../UploadContract.module.css';
 import { contractService } from '../../services/contractService';
+import AiVerificationPanel from './AiVerificationPanel';
 
 const CreateContractTab = ({ onDataChange }) => {
     const [formData, setFormData] = useState({
@@ -10,7 +11,10 @@ const CreateContractTab = ({ onDataChange }) => {
         duration: '',
         businessUnit: '',
         category: '',
-        riskLevel: 'Medium'
+        riskLevel: 'Medium',
+        startDate: '',
+        endDate: '',
+        expiryDate: ''
     });
 
     const [isGenerating, setIsGenerating] = useState(false);
@@ -74,11 +78,27 @@ const CreateContractTab = ({ onDataChange }) => {
             duration: '',
             businessUnit: '',
             category: '',
-            riskLevel: 'Medium'
+            riskLevel: 'Medium',
+            startDate: '',
+            endDate: '',
+            expiryDate: ''
         });
     };
 
     if (generatedDraft) {
+        const panelData = {
+            title: formData.title,
+            counterparty: formData.counterpartyName,
+            contractValue: formData.contractValue,
+            duration: formData.duration,
+            category: formData.category,
+            riskLevel: formData.riskLevel,
+            businessUnit: formData.businessUnit,
+            clauses: [],
+            complianceScore: 0,
+            risks: [],
+            missingFields: [],
+        };
         return (
             <div className={styles.formPanel} style={{ animation: 'fadeIn 0.5s ease' }}>
                 <div className={styles.formHeader}>
@@ -144,35 +164,10 @@ const CreateContractTab = ({ onDataChange }) => {
 
                 <div className={styles.formFooter}>
                     <button className={styles.cancelBtn} onClick={() => setGeneratedDraft('')}>Edit Details</button>
-                    <button className={styles.submitBtn}
-                        onClick={async () => {
-                            try {
-                                const valueNum = parseFloat(
-                                    (formData.contractValue || '0')
-                                    .replace(/[^0-9.]/g, '')
-                                ) || 0;
-
-                                const response = await fetch('/api/contracts/create', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        title: formData.title || 'New Contract',
-                                        company: formData.counterpartyName || 'Unknown',
-                                        value: valueNum,
-                                        department: formData.businessUnit || 'Legal',
-                                        submittedBy: 'Admin'
-                                    })
-                                });
-                                if (!response.ok) throw new Error('Failed');
-                                handleReset();
-                                showToast('Contract submitted for Legal Review!');
-                            } catch (err) {
-                                showToast('Failed to submit contract.', 'error');
-                            }
-                        }}>
-                        Finalize & Initialize Contract
-                    </button>
+                    <button className={styles.cancelBtn} onClick={handleReset}>Start Over</button>
                 </div>
+
+                <AiVerificationPanel data={panelData} onSuccess={handleReset} />
             </div>
         );
     }
@@ -238,6 +233,39 @@ const CreateContractTab = ({ onDataChange }) => {
                             onChange={handleInputChange}
                         />
                         {errors.duration && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.duration}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Start Date</label>
+                        <input
+                            name="startDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.startDate}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>End Date</label>
+                        <input
+                            name="endDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.endDate}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Expiry Date</label>
+                        <input
+                            name="expiryDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.expiryDate}
+                            onChange={handleInputChange}
+                        />
                     </div>
 
                     <div className={styles.formGroup}>
@@ -310,6 +338,43 @@ const CreateContractTab = ({ onDataChange }) => {
 
                 <div className={styles.formFooter} style={{ marginTop: '1rem' }}>
                     <button type="button" className={styles.cancelBtn} onClick={handleReset}>Clear Form</button>
+                    <button
+                        type="button"
+                        className={styles.cancelBtn}
+                        onClick={async () => {
+                            if (!formData.title || !formData.counterpartyName) {
+                                showToast('Please fill Title and Counterparty Name', 'error');
+                                return;
+                            }
+                            try {
+                                const response = await fetch('/api/contracts/save-draft', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        title: formData.title,
+                                        company: formData.counterpartyName,
+                                        value: parseFloat((formData.contractValue || '0').replace(/[^0-9.]/g, '')) || 0,
+                                        department: formData.businessUnit || 'Legal',
+                                        category: formData.category || 'General',
+                                        riskLevel: formData.riskLevel || 'Medium',
+                                        duration: formData.duration || '',
+                                        startDate: formData.startDate || '',
+                                        endDate: formData.endDate || '',
+                                        expiryDate: formData.expiryDate || '',
+                                        draftText: generatedDraft || '',
+                                        submittedBy: 'Admin'
+                                    })
+                                });
+                                if (!response.ok) throw new Error('Failed');
+                                showToast('Draft saved successfully!');
+                                handleReset();
+                            } catch (err) {
+                                showToast('Failed to save draft.', 'error');
+                            }
+                        }}
+                    >
+                        💾 Save as Draft
+                    </button>
                     <button type="submit" className={styles.submitBtn} disabled={isGenerating}>
                         {isGenerating ? 'AI Generating Draft...' : 'Generate Contract Draft'}
                     </button>

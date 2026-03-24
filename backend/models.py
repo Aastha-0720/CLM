@@ -21,6 +21,22 @@ class PyObjectId(ObjectId):
             raise ValueError("Invalid objectid")
         return ObjectId(v)
 
+class ReviewComment(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    contractId: str
+    department: str
+    clauseId: Optional[str] = None
+    comment: str
+    commentedBy: str
+    status: str = "Comment"
+    parentId: Optional[str] = None
+    createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
 class ReviewData(BaseModel):
     status: str = "Pending"
     comments: str = ""
@@ -44,6 +60,19 @@ class Contract(BaseModel):
     createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     submittedBy: str = "Admin"
     reviews: DepartmentReviews = Field(default_factory=DepartmentReviews)
+    duration: Optional[str] = None
+    category: Optional[str] = None
+    risk_classification: Optional[str] = None
+    business_unit: Optional[str] = None
+    contract_owner: Optional[str] = None
+    expiry_date: Optional[str] = None
+    clauses: List[dict] = Field(default_factory=list)
+    review_mode: str = "sequential"
+    required_reviewers: List[str] = Field(default_factory=list)
+    escalated: bool = False
+    escalatedBy: Optional[str] = None
+    escalatedAt: Optional[str] = None
+    escalationReason: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -71,6 +100,24 @@ class CAS(BaseModel):
     agreementType: str = "Master Service Agreement"
     keyNotes: str = ""
     approvalChain: List[dict] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class Document(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    contractId: str
+    fileName: str
+    fileType: str
+    fileSize: int
+    storagePath: str
+    version: int = 1
+    uploadedBy: str = "Admin"
+    uploadedAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    category: str = "General"
+    tags: List[str] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True
