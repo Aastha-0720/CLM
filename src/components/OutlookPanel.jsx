@@ -8,42 +8,114 @@ import Reports from './Reports';
 import Dashboard from './Dashboard';
 import Reviews from './Reviews';
 import Settings from './Settings';
+import AdminManagement from './AdminManagement';
+import UserManagement from './UserManagement';
+import AuditLogs from './AuditLogs';
+import MyContracts from './MyContracts';
+import DocumentViewer from './DocumentViewer';
+
 import { contractService } from '../services/contractService';
 import { LayoutDashboard, Upload, Scale, FileText, 
          ClipboardCheck, BarChart2, Settings as SettingsIcon,
-         Bell, Search, Sun, Moon } from 'lucide-react';
+         Bell, Search, Sun, Moon, Shield, Users, ClipboardList } from 'lucide-react';
+
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
-    const [selectedEmail, setSelectedEmail] = useState(null);
-    const [activeNav, setActiveNav] = useState('Dashboard');
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Derive activeNav from URL
+    const getActiveNavFromUrl = () => {
+        const path = location.pathname.split('/').pop(); // Gets 'dashboard', 'contracts', etc.
+        if (!path || path === user?.role?.toLowerCase()) return 'Dashboard';
+        
+        // Map path back to Nav Item Name
+        const mapping = {
+            'dashboard': 'Dashboard',
+            'contracts': 'Contracts',
+            'my-contracts': 'My Contracts',
+            'create-contract': 'Create Contract',
+            'reviews': 'Reviews',
+            'cas': 'CAS',
+            'doa-approvals': 'DOA Approvals',
+            'reports': 'Reports',
+            'settings': 'Settings',
+            'manage-admins': 'Manage Admins',
+            'manage-users': 'Manage Users',
+            'audit-logs': 'Audit Logs'
+        };
+        return mapping[path] || 'Dashboard';
+    };
+
+    const activeNav = getActiveNavFromUrl();
+    const setActiveNav = (navName) => {
+        const mapping = {
+            'Dashboard': 'dashboard',
+            'Contracts': 'contracts',
+            'My Contracts': 'my-contracts',
+            'Create Contract': 'create-contract',
+            'Reviews': 'reviews',
+            'CAS': 'cas',
+            'DOA Approvals': 'doa-approvals',
+            'Reports': 'reports',
+            'Settings': 'settings',
+            'Manage Admins': 'manage-admins',
+            'Manage Users': 'manage-users',
+            'Audit Logs': 'audit-logs'
+        };
+        const path = mapping[navName] || 'dashboard';
+        navigate(`/${user.role.toLowerCase()}/${path}`);
+    };
 
     // Live Clock State
     const [time, setTime] = useState(new Date());
 
     // Search State
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
+    const [searchModalContract, setSearchModalContract] = useState(null);
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [searchModalContract, setSearchModalContract] = useState(null);
     const searchRef = useRef(null);
 
     // Notifications State
     const [notifs, setNotifs] = useState([]);
     const [showNotifs, setShowNotifs] = useState(false);
     const notifRef = useRef(null);
+    const [viewingContractId, setViewingContractId] = useState(null);
+    const [isHealthPanelOpen, setIsHealthPanelOpen] = useState(false);
 
     const allNavItems = [
         { name: 'Dashboard', icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
-        { name: 'Upload Contracts', icon: <Upload size={20} strokeWidth={1.5} /> },
+        { name: 'Contracts', icon: <Upload size={20} strokeWidth={1.5} /> },
+        { name: 'My Contracts', icon: <FileText size={20} strokeWidth={1.5} /> },
+        { name: 'Create Contract', icon: <Upload size={20} strokeWidth={1.5} /> },
         { name: 'Reviews', icon: <Scale size={20} strokeWidth={1.5} /> },
         { name: 'CAS', icon: <FileText size={20} strokeWidth={1.5} /> },
         { name: 'DOA Approvals', icon: <ClipboardCheck size={20} strokeWidth={1.5} /> },
         { name: 'Reports', icon: <BarChart2 size={20} strokeWidth={1.5} /> },
         { name: 'Settings', icon: <SettingsIcon size={20} strokeWidth={1.5} /> },
+        { name: 'Manage Admins', icon: <Shield size={20} strokeWidth={1.5} /> },
+        { name: 'Manage Users', icon: <Users size={20} strokeWidth={1.5} /> },
+        { name: 'Audit Logs', icon: <ClipboardList size={20} strokeWidth={1.5} /> },
     ];
 
     const getNavItemsByRole = (role) => {
         switch (role) {
+            case 'Superadmin':
+                return allNavItems.filter(item => [
+                    'Dashboard', 'Manage Admins', 'Manage Users', 
+                    'Contracts', 'Settings', 'Reports', 'Audit Logs'
+                ].includes(item.name));
+            case 'User':
+                return allNavItems.filter(item => [
+                    'Dashboard', 'My Contracts', 'Create Contract', 
+                    'Reviews', 'DOA Approvals', 'Settings'
+                ].includes(item.name));
             case 'Legal':
             case 'Finance':
             case 'Compliance':
@@ -57,7 +129,9 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                 return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports', 'Settings'].includes(item.name));
             case 'Admin':
             default:
-                return allNavItems;
+                return allNavItems.filter(item => ![
+                    'My Contracts', 'Create Contract', 'Manage Admins', 'Manage Users', 'Audit Logs'
+                ].includes(item.name));
         }
     };
 
@@ -330,40 +404,70 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                 </header>
 
                 <main className={styles.mainContent}>
-                    {activeNav === 'Upload Contracts' ? (
+                    {viewingContractId ? (
                         <div className={styles.fullWidthSection}>
-                            <UploadContract />
+                            <DocumentViewer 
+                                contractId={viewingContractId} 
+                                onBack={() => setViewingContractId(null)} 
+                            />
                         </div>
-                    ) : activeNav === 'CAS' ? (
-                        <div className={styles.fullWidthSection}>
-                            <CAS user={user} />
-                        </div>
-                    ) : activeNav === 'DOA Approvals' ? (
-                        <div className={styles.fullWidthSection}>
-                            <DOAApprovals user={user} onNavigate={setActiveNav} />
-                        </div>
-                    ) : activeNav === 'Reviews' ? (
-                        <div className={styles.fullWidthSection}>
-                            <Reviews user={user} />
-                        </div>
-                    ) : activeNav === 'Reports' ? (
-                        <div className={styles.fullWidthSection}>
-                            <Reports user={user} />
-                        </div>
-                    ) : activeNav === 'Dashboard' ? (
-                        <div className={styles.fullWidthSection}>
-                            <Dashboard user={user} />
-                        </div>
-                    ) : activeNav === 'Settings' ? (
-                        <div className={styles.fullWidthSection}>
-                            <Settings user={user} />
-                        </div>
-                    ) : (
-                        <div className={styles.placeholder}>
-                            <h3>{activeNav}</h3>
-                            <p>This module is currently under development.</p>
-                        </div>
-                    )}
+                    ) : (() => {
+                        const navItems = getNavItemsByRole(user?.role);
+                        const isAllowed = navItems.some(item => item.name === activeNav) || activeNav === 'Dashboard';
+                        
+                        if (!isAllowed) {
+                            return (
+                                <div className={styles.placeholder}>
+                                    <h3 style={{ color: '#EF4444' }}>Access Denied</h3>
+                                    <p>Your account ({user?.role}) does not have permission to access the "{activeNav}" module.</p>
+                                </div>
+                            );
+                        }
+
+                        if (activeNav === 'Contracts') {
+                            return <div className={styles.fullWidthSection}><UploadContract onOpenContract={setViewingContractId} /></div>;
+                        }
+                        if (activeNav === 'My Contracts') {
+                            return <div className={styles.fullWidthSection}><MyContracts user={user} onOpenContract={setViewingContractId} /></div>;
+                        }
+                        if (activeNav === 'Create Contract') {
+                            return <div className={styles.fullWidthSection}><UploadContract initialTab="create" onOpenContract={setViewingContractId} /></div>;
+                        }
+                        if (activeNav === 'CAS') {
+                            return <div className={styles.fullWidthSection}><CAS user={user} /></div>;
+                        }
+                        if (activeNav === 'DOA Approvals') {
+                            return <div className={styles.fullWidthSection}><DOAApprovals user={user} onNavigate={setActiveNav} /></div>;
+                        }
+                        if (activeNav === 'Reviews') {
+                            return <div className={styles.fullWidthSection}><Reviews user={user} /></div>;
+                        }
+                        if (activeNav === 'Reports') {
+                            return <div className={styles.fullWidthSection}><Reports user={user} /></div>;
+                        }
+                        if (activeNav === 'Dashboard') {
+                            return <div className={styles.fullWidthSection}><Dashboard user={user} /></div>;
+                        }
+                        if (activeNav === 'Settings') {
+                            return <div className={styles.fullWidthSection}><Settings user={user} /></div>;
+                        }
+                        if (activeNav === 'Manage Admins') {
+                            return <div className={styles.fullWidthSection}><AdminManagement /></div>;
+                        }
+                        if (activeNav === 'Manage Users') {
+                            return <div className={styles.fullWidthSection}><UserManagement /></div>;
+                        }
+                        if (activeNav === 'Audit Logs') {
+                            return <div className={styles.fullWidthSection}><AuditLogs /></div>;
+                        }
+                        
+                        return (
+                            <div className={styles.placeholder}>
+                                <h3>{activeNav}</h3>
+                                <p>This module is currently under development.</p>
+                            </div>
+                        );
+                    })()}
                 </main>
             </div>
 

@@ -1,38 +1,109 @@
 import React, { useState, useEffect } from 'react';
+import { 
+    BrowserRouter as Router, 
+    Routes, 
+    Route, 
+    Navigate, 
+    useNavigate,
+    useLocation
+} from 'react-router-dom';
 import OutlookPanel from './components/OutlookPanel';
 import Login from './components/Login';
 
-function App() {
-    const [user, setUser] = useState(null);
+// Helper to protect routes
+const ProtectedRoute = ({ user, allowedRoles, children }) => {
+    if (!user) {
+        return <Navigate to="/login" replace />;
+    }
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        // Redirect to their own dashboard if they try to access wrong area
+        const dashPath = `/${user.role.toLowerCase()}/dashboard`;
+        return <Navigate to={dashPath} replace />;
+    }
+    return children;
+};
+
+function AppContent() {
+    const [user, setUser] = useState(() => {
+        const saved = localStorage.getItem('clm-user');
+        return saved ? JSON.parse(saved) : null;
+    });
     const [theme, setTheme] = useState(() => {
         return localStorage.getItem('clm-theme') || 'dark';
     });
+
+    const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('clm-theme', theme);
     }, [theme]);
 
+    useEffect(() => {
+        if (user) {
+            localStorage.setItem('clm-user', JSON.stringify(user));
+        } else {
+            localStorage.removeItem('clm-user');
+        }
+    }, [user]);
+
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    const handleLogin = (userData) => setUser(userData);
-    const handleLogout = () => setUser(null);
+    const handleLogin = (userData) => {
+        setUser(userData);
+        const rolePath = userData.role.toLowerCase();
+        navigate(`/${rolePath}/dashboard`);
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        navigate('/login');
+    };
 
     return (
         <div className="app-container">
-            {user ? (
-                <OutlookPanel
-                    user={user}
-                    onLogout={handleLogout}
-                    theme={theme}
-                    onToggleTheme={toggleTheme}
-                />
-            ) : (
-                <Login onLogin={handleLogin} />
-            )}
+            <Routes>
+                <Route path="/login" element={
+                    user ? <Navigate to={`/${user.role.toLowerCase()}/dashboard`} /> : <Login onLogin={handleLogin} />
+                } />
+                
+                {/* Role Specific Routes */}
+                <Route path="/user/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['User']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+                
+                <Route path="/admin/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['Admin']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/superadmin/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['Superadmin']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+
+                {/* Default Redirects */}
+                <Route path="/" element={
+                    user ? <Navigate to={`/${user.role.toLowerCase()}/dashboard`} /> : <Navigate to="/login" />
+                } />
+                <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
         </div>
+    );
+}
+
+function App() {
+    return (
+        <Router>
+            <AppContent />
+        </Router>
     );
 }
 

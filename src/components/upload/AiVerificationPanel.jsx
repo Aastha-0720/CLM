@@ -9,7 +9,7 @@ const DEPT_COLORS = {
     Procurement: { bg: 'rgba(249,115,22,0.15)', text: '#fb923c' },
 };
 
-const AiVerificationPanel = ({ data, onSuccess }) => {
+const AiVerificationPanel = ({ data, file, onSuccess }) => {
     const [verificationResult, setVerificationResult] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,7 +66,7 @@ const AiVerificationPanel = ({ data, onSuccess }) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: data.title || data.counterparty || 'New Contract',
+                    title: data.title || (file ? file.name : (data.counterparty || 'New Contract')),
                     company: data.counterparty || 'Unknown',
                     value: valueNum,
                     department: 'Legal',
@@ -79,6 +79,14 @@ const AiVerificationPanel = ({ data, onSuccess }) => {
                 })
             });
             if (!response.ok) throw new Error('Failed');
+            const result = await response.json();
+            const contractId = result.id;
+
+            // 2. Upload the file if present
+            if (file && contractId) {
+                await contractService.uploadContractDocument(contractId, file);
+            }
+
             showToast('Contract submitted for Legal Review!');
             setTimeout(() => {
                 if (onSuccess) onSuccess();

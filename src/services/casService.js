@@ -1,8 +1,10 @@
+import { getAuthHeaders } from './authHelper';
+
 const API_BASE = '/api';
 
 export const casService = {
     getAllCAS: async () => {
-        const response = await fetch(`${API_BASE}/cas`);
+        const response = await fetch(`${API_BASE}/cas`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch CAS records');
         return await response.json();
     },
@@ -10,7 +12,8 @@ export const casService = {
     generateCAS: async (contractId) => {
         // Now called via backend
         const response = await fetch(`${API_BASE}/contracts/${contractId}/generate-cas`, {
-            method: 'POST'
+            method: 'POST',
+            headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error('Failed to generate CAS');
         return await response.json();
@@ -21,7 +24,7 @@ export const casService = {
         const action = status === 'Approved' ? 'Approve' : 'Reject';
         const response = await fetch(`${API_BASE}/cas/${casId}/approve`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(action)
         });
         if (!response.ok) throw new Error('Failed to update CAS status');

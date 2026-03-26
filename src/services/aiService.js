@@ -1,10 +1,12 @@
+import { getAuthHeaders } from './authHelper';
+
 const BACKEND_URL = '/api';
 
 export async function analyzeContract(documentText) {
     try {
         const response = await fetch(`${BACKEND_URL}/ai/analyze-contract`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ document_text: documentText })
         });
         if (!response.ok) throw new Error('AI analysis failed');
@@ -24,7 +26,7 @@ export async function extractClausesFromEmail(emailText) {
     try {
         const response = await fetch(`${BACKEND_URL}/ai/extract-email`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ email_text: emailText })
         });
         if (!response.ok) throw new Error('Email extraction failed');
@@ -39,7 +41,7 @@ export async function generateCASNotes(contractId) {
     try {
         const response = await fetch(`${BACKEND_URL}/ai/generate-cas-notes`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ contract_id: contractId })
         });
         if (!response.ok) throw new Error('CAS notes generation failed');
@@ -56,6 +58,7 @@ export async function extractFromFile(file) {
         formData.append('file', file);
         const response = await fetch(`${BACKEND_URL}/ai/extract-file`, {
             method: 'POST',
+            headers: getAuthHeaders(true),
             body: formData
         });
         if (!response.ok) throw new Error('File extraction failed');

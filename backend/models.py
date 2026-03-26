@@ -73,6 +73,7 @@ class Contract(BaseModel):
     escalatedBy: Optional[str] = None
     escalatedAt: Optional[str] = None
     escalationReason: Optional[str] = None
+    draftText: Optional[str] = None
 
     class Config:
         populate_by_name = True
@@ -118,6 +119,33 @@ class Document(BaseModel):
     uploadedAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     category: str = "General"
     tags: List[str] = Field(default_factory=list)
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class SystemLog(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    action: str
+    user: str
+    role: str
+    details: str
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class User(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str
+    email: str
+    role: str
+    password: str
+    status: str = "Active"
+    createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
     class Config:
         populate_by_name = True

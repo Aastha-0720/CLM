@@ -5,10 +5,17 @@ import CsvUploadTab from './upload/CsvUploadTab';
 import EmailBucketTab from './upload/EmailBucketTab';
 import FileUploadTab from './upload/FileUploadTab';
 import CreateContractTab from './upload/CreateContractTab';
+import AllContractsTab from './upload/AllContractsTab';
 
-const UploadContract = () => {
-    const [activeTab, setActiveTab] = useState('csv');
+const UploadContract = ({ initialTab = 'csv', onOpenContract }) => {
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [contractData, setContractData] = useState({});
+
+    React.useEffect(() => {
+        if (initialTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
 
     const handleDataChange = (newData) => {
         setContractData(newData);
@@ -38,14 +45,20 @@ const UploadContract = () => {
             label: 'Create Contract',
             icon: '✍️',
             content: <CreateContractTab onDataChange={handleDataChange} />
+        },
+        {
+            id: 'all',
+            label: 'All Contracts',
+            icon: '📋',
+            content: <AllContractsTab onOpenContract={onOpenContract} />
         }
     ];
 
     return (
         <div className={styles.container}>
             <div className={styles.headerSection}>
-                <h2 className={styles.pageTitle}>Contract Initialization</h2>
-                <p className={styles.pageSub}>Select your preferred method to bring new contracts into the CLM system.</p>
+                <h2 className={styles.pageTitle}>Contracts</h2>
+                <p className={styles.pageSub}>Manage your contract lifecycle: repository access and new contract initialization.</p>
             </div>
 
             <div className={styles.tabsWrapper}>

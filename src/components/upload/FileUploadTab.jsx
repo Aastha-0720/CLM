@@ -123,7 +123,7 @@ const FileUploadTab = ({ onDataChange }) => {
                     </div>
                 )}
 
-                <AiVerificationPanel data={extractedData} onSuccess={handleReset} />
+                <AiVerificationPanel data={extractedData} file={file} onSuccess={handleReset} />
 
                 <div className={styles.formFooter} style={{ marginTop: '1rem' }}>
                     <button className={styles.cancelBtn} onClick={handleReset}>Upload Different File</button>

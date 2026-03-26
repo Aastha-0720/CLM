@@ -1,3 +1,5 @@
+import { getAuthHeaders } from './authHelper';
+
 const API_BASE = '/api';
 
 export const approvalService = {
@@ -10,7 +12,7 @@ export const approvalService = {
 
     // Fetch contracts matching both stage AND appropriate role
     getPendingApprovals: async (userRole) => {
-        const response = await fetch(`${API_BASE}/contracts?stage=DOA Approval`);
+        const response = await fetch(`${API_BASE}/contracts?stage=DOA Approval`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch pending approvals');
         const allPending = await response.json();
 
@@ -28,7 +30,8 @@ export const approvalService = {
     submitApproval: async (contractId, decision) => {
         const action = decision === 'Approved' ? 'approve' : 'reject';
         const response = await fetch(`${API_BASE}/contracts/doa/${contractId}/${action}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error('Failed to submit approval');
         return await response.json();

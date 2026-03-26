@@ -1,8 +1,10 @@
+import { getAuthHeaders } from './authHelper';
+
 const API_BASE = '/api';
 
 export const dashboardService = {
     getDashboardKPIs: async () => {
-        const response = await fetch(`${API_BASE}/dashboard/stats`);
+        const response = await fetch(`${API_BASE}/dashboard/stats`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch dashboard stats');
         const stats = await response.json();
 
@@ -13,5 +15,11 @@ export const dashboardService = {
             pendingApprovals: stats.pendingApproval,
             approvedContracts: stats.approved
         };
+    },
+
+    getUserActivity: async () => {
+        const response = await fetch(`${API_BASE}/activity`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch user activity');
+        return await response.json();
     }
 };

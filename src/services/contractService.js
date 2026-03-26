@@ -1,20 +1,22 @@
+import { getAuthHeaders } from './authHelper';
+
 const API_BASE = '/api';
 
 export const contractService = {
     getAllContracts: async () => {
-        const response = await fetch(`${API_BASE}/contracts`);
+        const response = await fetch(`${API_BASE}/contracts`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch contracts');
         return await response.json();
     },
 
     getDashboardStats: async () => {
-        const response = await fetch(`${API_BASE}/dashboard/stats`);
+        const response = await fetch(`${API_BASE}/dashboard/stats`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch dashboard stats');
         return await response.json();
     },
 
     getContractsByStage: async (stageFilter) => {
-        const response = await fetch(`${API_BASE}/contracts?stage=${encodeURIComponent(stageFilter)}`);
+        const response = await fetch(`${API_BASE}/contracts?stage=${encodeURIComponent(stageFilter)}`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch contracts by stage');
         return await response.json();
     },
@@ -31,9 +33,10 @@ export const contractService = {
         // We will handle the CSV upload at the component level, but if they pass FormData here:
         if (payload instanceof FormData) {
             const response = await fetch(`${API_BASE}/upload`, {
-                method: 'POST',
-                body: payload
-            });
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: payload
+        });
             if (!response.ok) throw new Error('Failed to upload file');
             return await response.json();
         }
@@ -51,7 +54,8 @@ export const contractService = {
         // or just map it here to the DOA path or simulate it for now.
         const action = status === 'Approved' ? 'approve' : 'reject';
         const response = await fetch(`${API_BASE}/contracts/doa/${id}/${action}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error('Failed to update stage');
         return await response.json();
@@ -60,9 +64,7 @@ export const contractService = {
     submitReview: async (id, department, status, comments) => {
         const response = await fetch(`${API_BASE}/contracts/${id}/review`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ department, status, comments, reviewer: "Admin" })
         });
         if (!response.ok) throw new Error('Failed to submit review');
@@ -105,7 +107,7 @@ export const contractService = {
         try {
             const response = await fetch('/api/ai/generate-draft', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(formData)
             });
             if (!response.ok) throw new Error('Failed');
@@ -173,11 +175,11 @@ Standard terms and conditions apply as per company policy.`;
     },
 
     getComments: async (contractId, department = null) => {
-        let url = `/api/contracts/${contractId}/comments`;
+        let url = `${API_BASE}/contracts/${contractId}/comments`;
         if (department) {
             url += `?department=${encodeURIComponent(department)}`;
         }
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch comments');
         return await response.json();
     },
@@ -188,9 +190,9 @@ Standard terms and conditions apply as per company policy.`;
     },
 
     addComment: async (contractId, clauseId, text, department, author) => {
-        const response = await fetch(`/api/contracts/${contractId}/comments`, {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/comments`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 department: department,
                 clauseId: clauseId,
@@ -214,7 +216,7 @@ Standard terms and conditions apply as per company policy.`;
     escalateContract: async (contractId, department, reason, escalatedBy) => {
         const response = await fetch(`${API_BASE}/contracts/${contractId}/escalate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ escalatedBy, department, reason })
         });
         if (!response.ok) throw new Error('Escalation failed');
@@ -223,7 +225,7 @@ Standard terms and conditions apply as per company policy.`;
 
     // ─── Notification API ───
     getNotifications: async (role) => {
-        const response = await fetch(`${API_BASE}/notifications?role=${encodeURIComponent(role)}`);
+        const response = await fetch(`${API_BASE}/notifications?role=${encodeURIComponent(role)}`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch notifications');
         return await response.json();
     },
@@ -233,6 +235,65 @@ Standard terms and conditions apply as per company policy.`;
             method: 'POST'
         });
         if (!response.ok) throw new Error('Failed to mark notification as read');
+        return await response.json();
+    },
+    
+    // NEW ENDPOINT FETCH FOR MY CONTRACTS
+    getUserContracts: async () => {
+        const response = await fetch(`${API_BASE}/user/contracts`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch user contracts');
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    },
+
+    getContractDocuments: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/documents`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch documents');
+        return await response.json();
+    },
+
+    uploadContractDocument: async (contractId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('uploadedBy', 'Admin');
+        formData.append('category', 'Original');
+
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/documents`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: formData
+        });
+        if (!response.ok) throw new Error('Failed to upload document');
+        return await response.json();
+    },
+
+    getEditorContent: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/editor-content`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch editor content');
+        return await response.json();
+    },
+
+    saveEditorContent: async (contractId, content) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/save-editor-content`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ content })
+        });
+        if (!response.ok) throw new Error('Failed to save editor content');
+        return await response.json();
+    },
+
+    getDocumentViewData: async (documentId) => {
+        const response = await fetch(`${API_BASE}/documents/${documentId}/view`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch document view data');
+        return await response.json();
+    },
+
+    getContractById: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch contract');
         return await response.json();
     }
 };
