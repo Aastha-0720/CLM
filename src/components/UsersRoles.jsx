@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './UsersRoles.module.css';
+import { getAuthHeaders } from '../services/authHelper';
 
 const UsersRoles = ({ user, embedded = false }) => {
     const [users, setUsers] = useState([]);
@@ -21,7 +22,9 @@ const UsersRoles = ({ user, embedded = false }) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/admin/users');
+            const response = await fetch('/api/admin/users', {
+                headers: getAuthHeaders()
+            });
             if (response.ok) {
                 const data = await response.json();
                 setUsers(data);
@@ -53,7 +56,7 @@ const UsersRoles = ({ user, embedded = false }) => {
         try {
             const resp = await fetch('/api/admin/users', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(newUser)
             });
             if (resp.ok) {
@@ -80,7 +83,7 @@ const UsersRoles = ({ user, embedded = false }) => {
         try {
             const resp = await fetch(`/api/admin/users/${editingUser.id}/role`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ role: editingUser.role })
             });
             if (resp.ok) {
@@ -100,7 +103,8 @@ const UsersRoles = ({ user, embedded = false }) => {
         if (!deletingUser) return;
         try {
             const resp = await fetch(`/api/admin/users/${deletingUser.id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
             if (resp.ok) {
                 setIsDeleteModalOpen(false);
@@ -293,7 +297,7 @@ const UsersRoles = ({ user, embedded = false }) => {
                                 className={styles.input} 
                                 value={newUser.email}
                                 onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                                placeholder="john@apeiro.com"
+                                placeholder="john@apeiro.digital"
                             />
                         </div>
 

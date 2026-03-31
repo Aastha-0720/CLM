@@ -1,0 +1,28 @@
+
+> clm-demo@0.0.1 build
+> vite build
+
+vite v4.5.14 building for production...
+transforming...
+✓ 2652 modules transformed.
+✓ built in 23.39s
+"default" is not exported by "node_modules/@tiptap/extension-text-style/dist/index.js", imported by "src/components/upload/ContractEditor.jsx".
+file: /app/src/components/upload/ContractEditor.jsx:6:7
+4: import Underline from '@tiptap/extension-underline';
+5: import TextAlign from '@tiptap/extension-text-align';
+6: import TextStyle from '@tiptap/extension-text-style';
+          ^
+7: import Color from '@tiptap/extension-color';
+8: import FontFamily from '@tiptap/extension-font-family';
+error during build:
+RollupError: "default" is not exported by "node_modules/@tiptap/extension-text-style/dist/index.js", imported by "src/components/upload/ContractEditor.jsx".
+    at error (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:2287:30)
+    at Module.error (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:13751:16)
+    at Module.traceVariable (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:14181:29)
+    at ModuleScope.findVariable (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:12621:39)
+    at ReturnValueScope.findVariable (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:7130:38)
+    at ChildScope.findVariable (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:7130:38)
+    at Identifier.bind (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:8325:40)
+    at ArrayExpression.bind (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:5894:28)
+    at Property.bind (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:5898:23)
+    at ObjectExpression.bind (file:///app/node_modules/rollup/dist/es/shared/node-entry.js:5894:28)

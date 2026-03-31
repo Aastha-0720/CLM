@@ -77,7 +77,7 @@ const DocumentViewer = ({ contractId, onBack }) => {
         
         setIsSubmittingComment(true);
         try {
-            const userEmail = localStorage.getItem('userEmail') || 'user@apeiro.com';
+            const userEmail = localStorage.getItem('userEmail') || 'Unknown User';
             await contractService.addComment(
                 contractId, 
                 null, 
@@ -201,8 +201,8 @@ const DocumentViewer = ({ contractId, onBack }) => {
                                     borderRadius: '12px', 
                                     fontSize: '11px', 
                                     fontWeight: '700',
-                                    background: contract?.status === 'Approved' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                                    color: contract?.status === 'Approved' ? '#10b981' : '#f59e0b',
+                                    background: (contract?.status === 'Approved' || contract?.status === 'Executed') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                    color: (contract?.status === 'Approved' || contract?.status === 'Executed') ? '#10b981' : '#f59e0b',
                                     width: 'fit-content',
                                     marginTop: '4px'
                                 }}>
@@ -248,7 +248,7 @@ const DocumentViewer = ({ contractId, onBack }) => {
                                         <div className={styles.commentHeader}>
                                             <span className={styles.commentAuthor}>{comment.commentedBy}</span>
                                             <span className={styles.commentTime}>
-                                                {new Date(comment.timestamp).toLocaleString()}
+                                                {new Date(comment.createdAt).toLocaleString()}
                                             </span>
                                         </div>
                                         <div className={styles.commentText}>{comment.comment}</div>

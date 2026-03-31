@@ -1,0 +1,111 @@
+%% ============================================================
+%% Contrax CLM — Full Contract Lifecycle Flowchart
+%% ============================================================
+
+flowchart TD
+
+    %% ── AUTH ──────────────────────────────────────────────────
+    A([User visits App]) --> B{Logged in?}
+    B -- No --> C[Login Page]
+    B -- Yes --> D["Redirect to /{role}/dashboard"]
+
+    C --> E[Enter Email + Password]
+    E --> F["POST /api/login"]
+    F --> G{Domain Whitelisted?}
+    G -- No --> H["403 — Domain Not Allowed"]
+    G -- Yes --> I{Credentials Valid?}
+    I -- No --> J["401 — Invalid Credentials"]
+    I -- Yes --> K{Account Active?}
+    K -- No --> L["403 — Account Inactive"]
+    K -- Yes --> M["Return User Object\nrole · email · name"]
+    M --> N["Store in localStorage"]
+    N --> D
+
+    %% ── CONTRACT CREATION ────────────────────────────────────
+    D --> O{User Action}
+    O -- "Create Contract\n(form / CSV)" --> P["POST /api/contracts/create\nor POST /api/upload"]
+    P --> Q[("MongoDB\nstage: Under Review\nstatus: Pending")]
+    Q --> R["🔔 Notify Legal Dept"]
+
+    %% ── SEQUENTIAL REVIEW WORKFLOW ───────────────────────────
+    subgraph REVIEW["Sequential Review Workflow"]
+        R --> S["Legal Review"]
+        S --> S1{Decision?}
+        S1 -- "Comment / Change Request" --> S
+        S1 -- Reject --> REJ1(["❌ Rejected"])
+        S1 -- Approve --> T["stage → Finance Review\n🔔 Notify Finance"]
+
+        T --> U["Finance Review"]
+        U --> U1{Decision?}
+        U1 -- "Comment / Change Request" --> U
+        U1 -- Reject --> REJ1
+        U1 -- Approve --> V["stage → Compliance Review\n🔔 Notify Compliance"]
+
+        V --> W["Compliance Review"]
+        W --> W1{Decision?}
+        W1 -- "Comment / Change Request" --> W
+        W1 -- Reject --> REJ1
+        W1 -- Approve --> X["stage → Procurement Review\n🔔 Notify Procurement"]
+
+        X --> Y["Procurement Review"]
+        Y --> Y1{Decision?}
+        Y1 -- "Comment / Change Request" --> Y
+        Y1 -- Reject --> REJ1
+        Y1 -- Approve --> Z["stage → CAS Generated\nstatus → Approved by Reviewers"]
+    end
+
+    %% ── CAS WORKFLOW ─────────────────────────────────────────
+    subgraph CAS_FLOW["Contract Approval Sheet (CAS)"]
+        Z --> Z1["services.generate_cas_document()\nApproval Chain:\nInitiator → Endorser → Reviewer → Approver"]
+        Z1 --> Z2["🔔 Notify Contract Initiator"]
+        Z2 --> Z3["User Reviews CAS"]
+        Z3 --> Z4["Admin Approves Each Step\nin Approval Chain"]
+        Z4 --> Z5{All Steps Approved?}
+        Z5 -- No --> Z4
+        Z5 -- Yes --> AA["stage → DOA Approval\nstatus → Pending DOA"]
+    end
+
+    %% ── DOA APPROVAL ─────────────────────────────────────────
+    subgraph DOA_FLOW["Delegation of Authority (DOA) Approval"]
+        AA --> AB{Contract Value?}
+        AB -- "≤ $10,000" --> AC["Manager Approves"]
+        AB -- "> $10,000" --> AD["CEO Approves"]
+        AC & AD --> AE{DOA Decision?}
+        AE -- Reject --> AF(["❌ Rejected\nReturns to Under Review"])
+        AE -- Approve --> AG["✅ Approved\nstage: Approved\nstatus: Approved"]
+    end
+
+    %% ── DIGITAL SIGNATURE ────────────────────────────────────
+    subgraph SIG_FLOW["Digital Signature — DigInk"]
+        AG --> AH["Send for Signature"]
+        AH --> AI["POST /api/contracts/:id/send-for-signature"]
+        AI --> AJ["Find Latest PDF\nfrom uploads/ folder"]
+        AJ --> AK{File Found?}
+        AK -- No --> AL["500 Error"]
+        AK -- Yes --> AM["digink_service.upload_document()\nUpload PDF to DigInk API"]
+        AM --> AN["Receive diginkDocumentId"]
+        AN --> AO["digink_service.create_envelope()\nCreate Signing Envelope"]
+        AO --> AP[("Save DigInkDocument\nto MongoDB")]
+        AP --> AQ["🔔 Notify Initiator:\nContract ready for signature"]
+        AQ --> AR(["📝 Contract Signed & Complete"])
+    end
+
+    %% ── ESCALATION PATH ──────────────────────────────────────
+    S1 -- Escalate --> ESC["POST /contracts/:id/escalate"]
+    U1 -- Escalate --> ESC
+    W1 -- Escalate --> ESC
+    Y1 -- Escalate --> ESC
+    ESC --> ESC2["🔔 Notify Manager + CEO\n(escalation alert)"]
+
+    %% ── STYLES ───────────────────────────────────────────────
+    classDef rejected fill:#ef4444,color:#fff,stroke:#b91c1c
+    classDef approved fill:#22c55e,color:#fff,stroke:#16a34a
+    classDef stage fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    classDef notify fill:#f59e0b,color:#fff,stroke:#d97706
+    classDef decision fill:#8b5cf6,color:#fff,stroke:#7c3aed
+
+    class REJ1,AF rejected
+    class AG,AR approved
+    class T,V,X,Z,AA stage
+    class R,Z2,AQ,ESC2 notify
+    class S1,U1,W1,Y1,AE,AB,AK decision

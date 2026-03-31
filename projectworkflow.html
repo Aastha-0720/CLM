@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Contrax CLM Flowchart</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0f172a;
+            color: white;
+            padding: 20px;
+        }
+
+        .mermaid {
+            background: #111827;
+            padding: 20px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Contrax CLM — Full Contract Lifecycle Flowchart</h2>
+
+    <div class="mermaid">
+        flowchart TD
+
+        A([User visits App]) --> B{Logged in?}
+        B -- No --> C[Login Page]
+        B -- Yes --> D["Redirect to /{role}/dashboard"]
+
+        C --> E[Enter Email + Password]
+        E --> F["POST /api/login"]
+        F --> G{Domain Whitelisted?}
+        G -- No --> H["403 — Domain Not Allowed"]
+        G -- Yes --> I{Credentials Valid?}
+        I -- No --> J["401 — Invalid Credentials"]
+        I -- Yes --> K{Account Active?}
+        K -- No --> L["403 — Account Inactive"]
+        K -- Yes --> M["Return User Object\nrole · email · name"]
+        M --> N["Store in localStorage"]
+        N --> D
+
+        D --> O{User Action}
+        O -- "Create Contract\n(form / CSV)" --> P["POST /api/contracts/create\nor POST /api/upload"]
+        P --> Q[("MongoDB\nstage: Under Review\nstatus: Pending")]
+        Q --> R["Notify Legal Dept"]
+
+        subgraph REVIEW["Sequential Review Workflow"]
+        R --> S["Legal Review"]
+        S --> S1{Decision?}
+        S1 -- "Comment / Change Request" --> S
+        S1 -- Reject --> REJ1(["Rejected"])
+        S1 -- Approve --> T["stage → Finance Review"]
+
+        T --> U["Finance Review"]
+        U --> U1{Decision?}
+        U1 -- "Comment / Change Request" --> U
+        U1 -- Reject --> REJ1
+        U1 -- Approve --> V["stage → Compliance Review"]
+
+        V --> W["Compliance Review"]
+        W --> W1{Decision?}
+        W1 -- "Comment / Change Request" --> W
+        W1 -- Reject --> REJ1
+        W1 -- Approve --> X["stage → Procurement Review"]
+
+        X --> Y["Procurement Review"]
+        Y --> Y1{Decision?}
+        Y1 -- "Comment / Change Request" --> Y
+        Y1 -- Reject --> REJ1
+        Y1 -- Approve --> Z["stage → CAS Generated"]
+        end
+
+        subgraph CAS_FLOW["Contract Approval Sheet (CAS)"]
+        Z --> Z1["Generate CAS Document"]
+        Z1 --> Z2["Notify Initiator"]
+        Z2 --> Z3["User Reviews CAS"]
+        Z3 --> Z4["Admin Approves Each Step"]
+        Z4 --> Z5{All Steps Approved?}
+        Z5 -- No --> Z4
+        Z5 -- Yes --> AA["stage → DOA Approval"]
+        end
+
+        subgraph DOA_FLOW["Delegation of Authority (DOA)"]
+        AA --> AB{Contract Value?}
+        AB -- "≤ $10,000" --> AC["Manager Approves"]
+        AB -- "> $10,000" --> AD["CEO Approves"]
+        AC & AD --> AE{DOA Decision?}
+        AE -- Reject --> AF(["Rejected"])
+        AE -- Approve --> AG["Approved"]
+        end
+
+        subgraph SIG_FLOW["Digital Signature — DigInk"]
+        AG --> AH["Send for Signature"]
+        AH --> AI["API Call"]
+        AI --> AJ["Find Latest PDF"]
+        AJ --> AK{File Found?}
+        AK -- No --> AL["Error"]
+        AK -- Yes --> AM["Upload to DigInk"]
+        AM --> AN["Get Document ID"]
+        AN --> AO["Create Envelope"]
+        AO --> AP["Save to DB"]
+        AP --> AQ["Notify User"]
+        AQ --> AR(["Contract Signed"])
+        end
+
+        S1 -- Escalate --> ESC["Escalate"]
+        U1 -- Escalate --> ESC
+        W1 -- Escalate --> ESC
+        Y1 -- Escalate --> ESC
+        ESC --> ESC2["Notify Manager + CEO"]
+
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+
+</body>
+
+</html>

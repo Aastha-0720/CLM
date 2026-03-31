@@ -5,6 +5,7 @@ import LegalReview from './LegalReview';
 import FinanceReview from './FinanceReview';
 import ComplianceReview from './ComplianceReview';
 import ProcurementReview from './ProcurementReview';
+import UserReviews from './UserReviews';
 import { contractService } from '../services/contractService';
 
 const Reviews = ({ user }) => {
@@ -50,6 +51,7 @@ const Reviews = ({ user }) => {
     if (user?.role === 'Finance') return <FinanceReview user={user} />;
     if (user?.role === 'Compliance') return <ComplianceReview user={user} />;
     if (user?.role === 'Procurement') return <ProcurementReview user={user} />;
+    if (user?.role === 'User') return <UserReviews user={user} />;
 
     if (activeDepartment) {
         const activeItem = departments.find(d => d.id === activeDepartment);

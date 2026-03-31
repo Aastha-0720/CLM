@@ -71,6 +71,15 @@ export const contractService = {
         return await response.json();
     },
 
+    getUserReviews: async () => {
+        const response = await fetch(`${API_BASE}/user/reviews`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch user reviews');
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    },
+
     parseEmailContent: async (emailData) => {
         // Mock AI Extraction delay
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -207,7 +216,8 @@ Standard terms and conditions apply as per company policy.`;
 
     deleteComment: async (commentId) => {
         const response = await fetch(`/api/comments/${commentId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error('Failed to delete comment');
         return await response.json();
@@ -294,6 +304,45 @@ Standard terms and conditions apply as per company policy.`;
     getContractById: async (contractId) => {
         const response = await fetch(`${API_BASE}/contracts/${contractId}`, { headers: getAuthHeaders() });
         if (!response.ok) throw new Error('Failed to fetch contract');
+        return await response.json();
+    },
+
+    getUserApprovals: async () => {
+        const response = await fetch(`${API_BASE}/user/approvals`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch approvals');
+        return await response.json();
+    },
+
+    approveCASContract: async (id, action) => {
+        const response = await fetch(`${API_BASE}/contracts/${id}/approve`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ action })
+        });
+        if (!response.ok) throw new Error('Failed to approve/reject contract');
+        return await response.json();
+    },
+    
+    sendForSignature: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/send-for-signature`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to send for signature');
+        return await response.json();
+    },
+
+    getDiginkStatus: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/digink-status`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch DigInk status');
+        return await response.json();
+    },
+    
+    getUserAuditLogs: async () => {
+        const response = await fetch(`${API_BASE}/user/audit-logs`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch user audit logs');
         return await response.json();
     }
 };

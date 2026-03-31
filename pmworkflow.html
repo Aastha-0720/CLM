@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Contrax CLM - Project Manager Workflow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0f172a;
+            color: white;
+            padding: 20px;
+        }
+
+        .mermaid {
+            background: #111827;
+            padding: 20px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Contrax CLM — Project Manager / User Workflow</h2>
+
+    <div class="mermaid">
+        flowchart TD
+
+        PM([Project Manager Logs In])
+        PM --> AUTH["POST /api/login"]
+        AUTH --> DASH["User Dashboard"]
+
+        DASH --> NAV{Where does PM go?}
+        NAV -- "New Contract" --> CONTRACTS_PAGE
+        NAV -- "Track Existing" --> MY_CONTRACTS
+
+        CONTRACTS_PAGE --> TAB_SEL{Select Tab}
+
+        TAB_SEL -- "CSV Upload" --> CSV_TAB
+        CSV_TAB --> CSV1["Upload CSV"]
+        CSV1 --> CSV2["POST /api/upload"]
+        CSV2 --> CSV3["Saved → Under Review"]
+
+        TAB_SEL -- "Email Bucket" --> EMAIL_TAB
+        EMAIL_TAB --> E1["Paste Email"]
+        E1 --> E2["AI Extract"]
+        E2 --> E3["Edit Fields"]
+        E3 --> E4["Submit"]
+
+        TAB_SEL -- "File Upload" --> FILE_TAB
+        FILE_TAB --> F1{Valid File?}
+        F1 -- No --> F_ERR["Error"]
+        F1 -- Yes --> F2["Show File Info"]
+        F2 --> F3["AI Extract"]
+        F3 --> F4{Success?}
+        F4 -- No --> F_ERR2["Extraction Failed"]
+        F4 -- Yes --> F5["Show Analysis"]
+        F5 --> VERIFY_PANEL
+
+        TAB_SEL -- "Create Contract" --> CREATE_TAB
+        CREATE_TAB --> C1["Fill Form"]
+        C1 --> C_VAL{Valid?}
+        C_VAL -- No --> C_ERR["Errors"]
+        C_VAL -- Yes --> C_ACTIONS
+
+        C_ACTIONS -- "Save Draft" --> DRAFT_SAVE
+        DRAFT_SAVE --> DS1["Save Draft"]
+        DS1 --> DS2["Draft Saved"]
+
+        C_ACTIONS -- "Generate Draft" --> AI_GEN
+        AI_GEN --> AG1["AI Generate"]
+        AG1 --> AG2["Preview"]
+        AG2 --> AG3{Next?}
+        AG3 --> VERIFY_PANEL
+
+        TAB_SEL -- "All Contracts" --> ALL_TAB["View All Contracts"]
+
+        subgraph VERIFY_PANEL["AI Verification"]
+        VP1["Compliance Check"]
+        VP1 --> VP2["Score"]
+        VP2 --> VP5["Routing Preview"]
+        VP5 --> VP6{Score ≥ 60?}
+        VP6 -- No --> VP_BLOCK["Blocked"]
+        VP6 -- Yes --> VP_SUBMIT["Submit Enabled"]
+        end
+
+        VP_SUBMIT --> SUBMIT_CONTRACT
+
+        SUBMIT_CONTRACT --> SC1["POST /api/contracts/create"]
+        SC1 --> SC2["Saved in DB"]
+        SC2 --> SC3{File Attached?}
+        SC3 -- Yes --> SC4["Upload File"]
+        SC3 -- No --> SC5
+        SC4 --> SC5["Notify Legal"]
+        SC5 --> SC6["Submitted"]
+
+        SC6 --> MY_CONTRACTS
+
+        subgraph MY_CONTRACTS["My Contracts"]
+        MC_LOAD["Fetch Contracts"]
+        MC_LOAD --> MC_FILTER["Filter"]
+        MC_FILTER --> MC_TABLE["Table"]
+        MC_TABLE --> MC_ACTION{Action?}
+        MC_ACTION -- "View" --> VIEWER
+        MC_ACTION -- "Edit" --> EDITOR
+
+        EDITOR --> ED1["Load Content"]
+        ED1 --> ED2["Editor"]
+        ED2 --> ED3{Action?}
+        ED3 -- "Save" --> ED4["Save Version"]
+        end
+
+        MC_TABLE --> STATUS_TRACK
+        STATUS_TRACK --> S1["Draft"]
+        STATUS_TRACK --> S2["Under Review"]
+        STATUS_TRACK --> S3["Pending Approval"]
+        STATUS_TRACK --> S4["Approved"]
+        STATUS_TRACK --> S5["Rejected"]
+        STATUS_TRACK --> S6["Signature"]
+
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+
+</body>
+
+</html>

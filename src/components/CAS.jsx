@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Clock, CheckCircle, Calendar } from 'lucide-react';
 import styles from './CAS.module.css';
 import { casService } from '../services/casService';
+import { contractService } from '../services/contractService';
+import { getAuthHeaders } from '../services/authHelper';
 
 const CAS = ({ user }) => {
     const [casRecords, setCasRecords] = useState([]);
@@ -10,6 +12,8 @@ const CAS = ({ user }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [toast, setToast] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState(null); // stores cas id to delete
+    const [diginkStatus, setDiginkStatus] = useState(null);
+    const [isSending, setIsSending] = useState(false);
 
     const showToast = (msg) => {
         setToast(msg);
@@ -55,9 +59,43 @@ const CAS = ({ user }) => {
         };
     };
 
+    const fetchDiginkStatus = async (contractId) => {
+        if (!contractId) return;
+        try {
+            const status = await contractService.getDiginkStatus(contractId);
+            setDiginkStatus(status);
+        } catch (err) {
+            console.error('Error fetching DigInk status:', err);
+        }
+    };
+
     useEffect(() => {
         loadData();
     }, []);
+
+    useEffect(() => {
+        if (selectedCas?.contractId) {
+            fetchDiginkStatus(selectedCas.contractId);
+        } else {
+            setDiginkStatus(null);
+        }
+    }, [selectedCas]);
+
+    const handleSendForSignature = async () => {
+        if (!selectedCas) return;
+        setIsSending(true);
+        try {
+            await contractService.sendForSignature(selectedCas.contractId);
+            showToast("Document successfully sent for signature via DigInk!");
+            await fetchDiginkStatus(selectedCas.contractId);
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to send for signature via DigInk API.");
+        } finally {
+            setIsSending(false);
+        }
+    };
 
     const handleApproveStep = async (stepIndex, role) => {
         if (!selectedCas) return;
@@ -143,7 +181,7 @@ const CAS = ({ user }) => {
         
         if (idx === 1) return isAdmin || userRole === 'Manager';
         if (idx === 2) return isAdmin || userRole === 'Legal';
-        if (idx === 3) return isAdmin || userRole === 'CEO';
+        if (idx === 3) return isAdmin || userRole === 'CEO' || userRole === 'Manager';
         
         return false;
     };
@@ -459,7 +497,7 @@ const CAS = ({ user }) => {
                                                 try {
                                                     const response = await fetch('/api/ai/generate-cas-notes', {
                                                         method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
+                                                        headers: getAuthHeaders(),
                                                         body: JSON.stringify({ contract_id: selectedCas.contractId })
                                                     });
                                                     if (!response.ok) throw new Error('Failed');
@@ -519,12 +557,51 @@ const CAS = ({ user }) => {
                                                             </span>
                                                         )}
                                                         {canApprove && (
-                                                            <button 
-                                                                className={styles.approvalBtn}
-                                                                onClick={() => handleApproveStep(idx, step.role)}
-                                                            >
-                                                                Acknowledge & Sign
-                                                            </button>
+                                                            <div style={{ marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                                <button 
+                                                                    className={styles.approvalBtn}
+                                                                    onClick={() => handleApproveStep(idx, step.role)}
+                                                                >
+                                                                    Acknowledge & Sign
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {step.role === 'Approver' && (!diginkStatus || diginkStatus.status === 'Not Sent') && (
+                                                            <div style={{ marginTop: '12px' }}>
+                                                                <button 
+                                                                    className={styles.approvalBtn}
+                                                                    onClick={handleSendForSignature}
+                                                                    disabled={isSending}
+                                                                    style={{ background: '#6366f1', width: '100%' }}
+                                                                >
+                                                                    {isSending ? 'Sending...' : 'Send for Signature (DigInk)'}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {step.role === 'Approver' && diginkStatus && diginkStatus.status !== 'Not Sent' && (
+                                                            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                                    <span style={{ 
+                                                                        background: diginkStatus.status === 'Signed' ? 'rgba(0, 201, 167, 0.1)' : 'rgba(99, 102, 241, 0.1)', 
+                                                                        color: diginkStatus.status === 'Signed' ? '#00C9A7' : '#6366f1',
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '4px',
+                                                                        fontWeight: '600',
+                                                                        fontSize: '10px',
+                                                                        textTransform: 'uppercase'
+                                                                    }}>
+                                                                        Signature: {diginkStatus.status}
+                                                                    </span>
+                                                                    <button 
+                                                                        style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: '11px' }}
+                                                                        onClick={() => fetchDiginkStatus(selectedCas.contractId)}
+                                                                    >
+                                                                        Refresh
+                                                                    </button>
+                                                                </div>
+                                                                {diginkStatus.status !== 'Signed' && "Signers can sign via the link sent to their emails."}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>

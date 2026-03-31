@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../services/authHelper';
 import styles from './Dashboard.module.css';
-import { ClipboardList, Filter, Search, Download } from 'lucide-react';
+import { ClipboardList, Filter, Search, Download, Trash2 } from 'lucide-react';
 
 const AuditLogs = () => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const handleDeleteLog = async (logId) => {
+        if (!window.confirm("Are you sure you want to delete this log entry?")) return;
+        try {
+            const res = await fetch(`/api/admin/audit-logs/${logId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            if (res.ok) {
+                setLogs(logs.filter(l => l.id !== logId));
+            } else {
+                alert("Failed to delete log");
+            }
+        } catch (err) {
+            console.error("Delete failed", err);
+        }
+    };
+
     const fetchLogs = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/admin/audit-logs');
+            const res = await fetch('/api/admin/audit-logs', {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             setLogs(data);
         } catch (err) {
@@ -76,11 +96,12 @@ const AuditLogs = () => {
                             <th>User Context</th>
                             <th>Action Taken</th>
                             <th>Details</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px' }}>Loading system logs...</td></tr>
+                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '48px' }}>Loading system logs...</td></tr>
                         ) : filteredLogs.length > 0 ? filteredLogs.map(log => (
                             <tr key={log.id}>
                                 <td style={{ whiteSpace: 'nowrap', fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -96,9 +117,23 @@ const AuditLogs = () => {
                                     </span>
                                 </td>
                                 <td style={{ fontSize: '13px' }}>{log.details}</td>
+                                <td style={{ textAlign: 'right' }}>
+                                    <button 
+                                        onClick={() => handleDeleteLog(log.id)}
+                                        style={{ 
+                                            background: 'none', border: 'none', color: '#EF4444', 
+                                            cursor: 'pointer', padding: '4px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            marginLeft: 'auto'
+                                        }}
+                                        title="Delete log"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>No audit logs matching your criteria.</td></tr>
+                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>No audit logs matching your criteria.</td></tr>
                         )}
                     </tbody>
                 </table>

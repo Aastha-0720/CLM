@@ -32,9 +32,22 @@ const MyContracts = ({ user, onOpenContract }) => {
         refreshContracts();
     }, []);
 
-    const handleViewDocument = (contractId) => {
+    const handleViewDocument = async (contractId) => {
         if (onOpenContract) {
             onOpenContract(contractId);
+        } else {
+            try {
+                const docs = await contractService.getContractDocuments(contractId);
+                if (docs && docs.length > 0) {
+                    const latestDoc = docs[0]; 
+                    window.open(`/api/documents/${latestDoc.id}/download`, '_blank');
+                } else {
+                    alert('No documents found for this contract.');
+                }
+            } catch (error) {
+                console.error('Error viewing document:', error);
+                alert('Failed to retrieve documents.');
+            }
         }
     };
 

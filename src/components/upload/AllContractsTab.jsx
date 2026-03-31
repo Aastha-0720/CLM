@@ -32,9 +32,22 @@ const AllContractsTab = ({ user, onOpenContract }) => {
         refreshContracts();
     }, []);
 
-    const handleViewDocument = (contractId) => {
+    const handleViewDocument = async (contractId) => {
         if (onOpenContract) {
             onOpenContract(contractId);
+        } else {
+            try {
+                const docs = await contractService.getContractDocuments(contractId);
+                if (docs && docs.length > 0) {
+                    const latestDoc = docs[0]; 
+                    window.open(`/api/documents/${latestDoc.id}/download`, '_blank');
+                } else {
+                    alert('No documents found for this contract.');
+                }
+            } catch (error) {
+                console.error('Error viewing document:', error);
+                alert('Failed to retrieve documents.');
+            }
         }
     };
 
@@ -189,11 +202,11 @@ const AllContractsTab = ({ user, onOpenContract }) => {
                                         <td className={styles.titleCell}>
                                             <button 
                                                 className={styles.titleLink}
-                                                onClick={() => handleViewDocument(contract.id)}
-                                                title="View Contract in App"
+                                                onClick={() => setEditingContract(contract)}
+                                                title="Edit Contract Document"
                                             >
                                                 {contract.title}
-                                                <Eye size={12} className={styles.linkIcon} />
+                                                <ExternalLink size={12} className={styles.linkIcon} />
                                             </button>
                                         </td>
                                         <td>{contract.company || '-'}</td>
@@ -214,22 +227,22 @@ const AllContractsTab = ({ user, onOpenContract }) => {
                                             {contract.daysPending || 0}d
                                          </td>
                                          <td>
-                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button 
-                                                    className={styles.actionBtn}
-                                                    onClick={() => handleViewDocument(contract.id)}
-                                                    title="View in App"
-                                                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
                                                 <button 
                                                     className={styles.actionBtn}
                                                     onClick={() => setEditingContract(contract)}
-                                                    title="Edit Content"
-                                                    style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}
+                                                    title="Edit Document Content"
+                                                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}
                                                 >
                                                     <FileText size={16} />
+                                                </button>
+                                                <button 
+                                                    className={styles.actionBtn}
+                                                    onClick={() => handleViewDocument(contract.id)}
+                                                    title="Download Original"
+                                                    style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}
+                                                >
+                                                    <Download size={16} />
                                                 </button>
                                             </div>
                                          </td>

@@ -24,6 +24,8 @@ const kpiData = [
     { id: 'pipeline', label: 'Pipeline Deal Value', value: '$4.2M', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#10B981', trend: '+18%' },
 ];
 
+import { getAuthHeaders } from '../services/authHelper';
+
 const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const [stats, setStats] = React.useState(null);
     const [contracts, setContracts] = React.useState([]);
@@ -45,7 +47,8 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const handleDeleteConfirm = async () => {
         try {
             const response = await fetch(`/api/contracts/${deleteConfirm}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             });
             if (response.ok) {
                 setContracts(prev => prev.filter(c => c.id !== deleteConfirm));
@@ -1072,6 +1075,7 @@ const UserDashboard = ({ user }) => {
     const [contracts, setContracts] = React.useState([]);
     const [activity, setActivity] = React.useState([]);
     const [tasks, setTasks] = React.useState([]);
+    const [selectedRecentContract, setSelectedRecentContract] = React.useState(null);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -1196,37 +1200,111 @@ const UserDashboard = ({ user }) => {
 
             <div className={styles.tableCard} style={{ gridColumn: '1 / -1' }}>
                 <div className={styles.cardHeader}>
-                    <h3>Recent Contracts</h3>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <ClipboardList size={18} /> Recent Contracts
+                    </h3>
                 </div>
                 <table className={styles.table}>
                     <thead>
                         <tr>
-                            <th>Title</th>
-                            <th>Company</th>
-                            <th>Value</th>
+                            <th>Contract Name</th>
                             <th>Status</th>
-                            <th>Stage</th>
+                            <th>Value</th>
+                            <th>Last Updated</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {contracts.length > 0 ? contracts.slice(0, 5).map((c) => (
-                            <tr key={c.id}>
+                        {contracts.length > 0 ? contracts.slice(0, 10).map((c) => (
+                            <tr 
+                                key={c.id} 
+                                onClick={() => setSelectedRecentContract(c)}
+                                style={{ cursor: 'pointer' }}
+                                className={styles.hoverRow}
+                            >
                                 <td className={styles.titleCell}>{c.title}</td>
-                                <td>{c.company}</td>
-                                <td>${(c.value || 0).toLocaleString()}</td>
                                 <td>
                                     <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
                                         {c.status}
                                     </span>
                                 </td>
-                                <td>{c.stage}</td>
+                                <td>${(c.value || 0).toLocaleString()}</td>
+                                <td style={{ color: 'var(--text-secondary)' }}>
+                                    {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : '--'}
+                                </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px' }}>No contracts found.</td></tr>
+                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px' }}>No contracts found.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {/* Contract Details Modal */}
+            {selectedRecentContract && (
+                <div className={styles.modalOverlay} onClick={() => setSelectedRecentContract(null)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 10 }}>
+                            <button className={styles.closeModalBtn} style={{ position: 'static' }} onClick={() => setSelectedRecentContract(null)}>×</button>
+                        </div>
+
+                        <h3 className={styles.modalTitle}>{selectedRecentContract.title}</h3>
+                        <p className={styles.modalCompany}>{selectedRecentContract.company}</p>
+
+                        <div className={styles.modalSection}>
+                            <h5>Contract Information</h5>
+                            <div className={styles.modalGrid}>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Contract ID</span>
+                                    <span className={styles.infoValue} style={{ fontFamily: 'monospace', color: 'var(--accent-teal)' }}>{selectedRecentContract.id}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Value</span>
+                                    <span className={styles.infoValue}>${(selectedRecentContract.value || 0).toLocaleString()}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Department</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.department}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Current Stage</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.stage}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Last Updated</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.updatedAt ? new Date(selectedRecentContract.updatedAt).toLocaleString() : '--'}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Status</span>
+                                    <span className={styles.infoValue}>
+                                        <span className={`${styles.statusBadge} ${selectedRecentContract.status === 'Approved' ? styles.good : selectedRecentContract.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                            {selectedRecentContract.status}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalSection}>
+                            <h5>Action History</h5>
+                            <div className={styles.reviewStatusList}>
+                                <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+                                    Full history available in "My Contracts" section.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                            <button 
+                                className={styles.actionBtn} 
+                                style={{ flex: 1, padding: '12px' }}
+                                onClick={() => navigate('/user/contracts')}
+                            >
+                                Open in My Contracts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1254,11 +1332,11 @@ const SuperadminDashboard = () => {
                 const contracts = await contractService.getAllContracts();
                 const totalValue = contracts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
                 
-                const userRes = await fetch('/api/admin/users');
-                const users = await userRes.json();
+                const userRes = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+                const users = userRes.ok ? await userRes.json() : [];
                 
-                const logRes = await fetch('/api/admin/audit-logs');
-                const logs = await logRes.json();
+                const logRes = await fetch('/api/admin/audit-logs', { headers: getAuthHeaders() });
+                const logs = logRes.ok ? await logRes.json() : [];
                 
                 // Helper for delayed calculation
                 const now = new Date();
@@ -1364,9 +1442,11 @@ const SuperadminDashboard = () => {
                 setChartData({ status: statusData, time: timeData, dept: deptData, pipeline: pipelineData });
                 setRecentLogs(logs.slice(0, 20)); // show up to 20 logs
 
-                const healthRes = await fetch('/api/admin/health');
-                const healthData = await healthRes.json();
-                setHealth(healthData);
+                const healthRes = await fetch('/api/admin/health', { headers: getAuthHeaders() });
+                if (healthRes.ok) {
+                    const healthData = await healthRes.json();
+                    setHealth(healthData);
+                }
             } catch (err) {
                 console.error("Dashboard data fetch failed", err);
             }

@@ -483,6 +483,10 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+.hoverRow:hover {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
 .idCell {
     font-family: monospace;
     color: var(--accent-teal);

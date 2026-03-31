@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styles from '../UploadContract.module.css';
+import { getAuthHeaders } from '../../services/authHelper';
 import AiVerificationPanel from './AiVerificationPanel';
 
 const EmailBucketTab = ({ onDataChange }) => {
@@ -27,7 +28,7 @@ const EmailBucketTab = ({ onDataChange }) => {
             if (file) emailText = await file.text();
             const response = await fetch('/api/ai/extract-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ email_text: emailText })
             });
             if (!response.ok) throw new Error('Extraction failed');

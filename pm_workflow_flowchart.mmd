@@ -1,0 +1,165 @@
+%% ============================================================
+%% Contrax CLM — Project Manager / User-Side Contract Creation Flow
+%% ============================================================
+
+flowchart TD
+
+    %% ── ENTRY POINT ───────────────────────────────────────────
+    PM([👤 Project Manager Logs In])
+    PM --> AUTH["POST /api/login\nDomain whitelist + credentials check"]
+    AUTH --> DASH["User Dashboard\nstage counters, pending reviews, expiring soon"]
+
+    %% ── NAVIGATION OPTIONS ─────────────────────────────────────
+    DASH --> NAV{Where does PM go?}
+    NAV -- "New Contract" --> CONTRACTS_PAGE["Contracts Page\n(UploadContract.jsx)\n5 Tabs"]
+    NAV -- "Track Existing" --> MY_CONTRACTS["My Contracts Page\n(MyContracts.jsx)"]
+
+    %% ════════════════════════════════════════════════════════════
+    %% PATH A — CONTRACTS PAGE (5 TABS)
+    %% ════════════════════════════════════════════════════════════
+    CONTRACTS_PAGE --> TAB_SEL{Select Tab}
+
+    %% ── TAB 1: CSV Upload ──────────────────────────────────────
+    TAB_SEL -- "📊 CSV Upload" --> CSV_TAB
+    subgraph CSV_TAB["Tab 1 — CSV Bulk Upload"]
+        CSV1["Upload .csv file\nwith contract fields"]
+        CSV1 --> CSV2["POST /api/upload\nParse + insert each row as a Contract"]
+        CSV2 --> CSV3["stage: Under Review\nstatus: Pending\n🔔 Legal Notified for each"]
+    end
+
+    %% ── TAB 2: Email Bucket ────────────────────────────────────
+    TAB_SEL -- "📧 Email Bucket" --> EMAIL_TAB
+    subgraph EMAIL_TAB["Tab 2 — Email Bucket"]
+        E1["Paste email text\nor parse forwarded email"]
+        E1 --> E2["POST /api/ai/extract-email\nDeepSeek AI extracts:\ncounterparty · value · subject · dates"]
+        E2 --> E3["Review extracted fields\nEdit if needed"]
+        E3 --> E4["Submit to contract creation flow"]
+    end
+
+    %% ── TAB 3: File Upload ─────────────────────────────────────
+    TAB_SEL -- "📄 File Upload" --> FILE_TAB
+    subgraph FILE_TAB["Tab 3 — File Upload (PDF / DOCX ≤ 5 MB)"]
+        F1{File Drop\nor Click}
+        F1 -- "Invalid type/size" --> F_ERR["⚠️ Error shown\n(unsupported format / too large)"]
+        F1 -- "Valid .pdf or .docx" --> F2["File info badge shown\n🔴 PDF  /  📘 DOCX\nfilename  ·  size"]
+        F2 --> F3["Process Document\nPOST /api/ai/extract-file\nAI extracts clauses · value · counterparty"]
+        F3 --> F4{"Extraction\nSucceeded?"}
+        F4 -- No --> F_ERR2["AI could not extract data\nTry different file"]
+        F4 -- Yes --> F5["AI Analysis Results\n• counterparty  • value\n• duration  • key dates\n• clause classification table"]
+        F5 --> VERIFY_PANEL
+    end
+
+    %% ── TAB 4: Create Contract ─────────────────────────────────
+    TAB_SEL -- "✍️ Create Contract" --> CREATE_TAB
+    subgraph CREATE_TAB["Tab 4 — Create Contract (Manual Form)"]
+        direction TB
+        C1["Fill Contract Form\n─────────────────────────────\n• Contract Title *\n• Counterparty Name *\n• Contract Value *\n• Duration *\n• Business Unit *\n• Category *\n• Start / End / Expiry Date\n• Risk Level: Low / Medium / High"]
+        C1 --> C_VAL{Validation\nPasses?}
+        C_VAL -- No --> C_ERR["Field errors shown\n(required fields highlighted)"]
+        C_VAL -- Yes --> C_ACTIONS{Action?}
+
+        C_ACTIONS -- "💾 Save as Draft" --> DRAFT_SAVE
+        C_ACTIONS -- "Generate Contract Draft" --> AI_GEN
+
+        subgraph DRAFT_SAVE["Save as Draft"]
+            DS1["POST /api/contracts/save-draft\nstage: Draft · status: Draft"]
+            DS1 --> DS2["✅ Toast: Draft saved!\nForm reset"]
+        end
+
+        subgraph AI_GEN["AI Draft Generation"]
+            AG1["POST /api/ai/generate-draft\nDeepSeek LLM generates professional\ncontract in markdown\n(Parties · Scope · Payment · Duration\n Risk · Liability · Termination · NDA)"]
+            AG1 --> AG2["Draft Preview\n• Rendered markdown\n• H1/H2/bold formatting\n• Scrollable · max 400px"]
+            AG2 --> AG3{Next Action?}
+            AG3 -- "Edit Details" --> C1
+            AG3 -- "Start Over" --> C1
+            AG3 -- "Submit via AI Panel" --> VERIFY_PANEL
+        end
+    end
+
+    %% ── TAB 5: All Contracts ───────────────────────────────────
+    TAB_SEL -- "📋 All Contracts" --> ALL_TAB["Tab 5 — All Contracts Ledger\n(read-only view for PM)"]
+
+    %% ════════════════════════════════════════════════════════════
+    %% AI VERIFICATION PANEL (shared by File Upload + Create)
+    %% ════════════════════════════════════════════════════════════
+    subgraph VERIFY_PANEL["🤖 AI Verification Panel (Shared)"]
+        VP1["Real-time Compliance Analysis\ncontractService.verifyContract()"]
+        VP1 --> VP2["Compliance Score\n(0–100%)"]
+        VP2 --> VP3["Risk Assessment Badges\nHigh / Medium / Low"]
+        VP2 --> VP4["Identified Gaps\nMissing fields list"]
+        VP2 --> VP5["Routing Preview\nDepartments with clause counts"]
+
+        VP5 --> VP6{Score ≥ 60?}
+        VP6 -- No --> VP_BLOCK["🚫 Submit blocked\n'Score Too Low for Review'"]
+        VP6 -- Yes --> VP_SUBMIT["'Send for Official Review' enabled"]
+    end
+
+    VP_SUBMIT --> SUBMIT_CONTRACT
+
+    %% ════════════════════════════════════════════════════════════
+    %% FINAL CONTRACT SUBMISSION
+    %% ════════════════════════════════════════════════════════════
+    subgraph SUBMIT_CONTRACT["📤 Contract Submission"]
+        SC1["POST /api/contracts/create\n{\n  title, company, value,\n  department: 'Legal',\n  submittedBy: userEmail,\n  duration, category,\n  risk_classification,\n  business_unit,\n  clauses: [ ... ]\n}"]
+        SC1 --> SC2["Contract saved to MongoDB\nstage: Under Review\nstatus: Pending"]
+        SC2 --> SC3{File Attached?}
+        SC3 -- Yes --> SC4["POST /api/contracts/:id/documents\nStore PDF/DOCX on disk\nSave metadata in DB:\n• fileName · fileType · fileSize\n• storagePath · version\n• uploadedBy · category"]
+        SC3 -- No --> SC5
+        SC4 --> SC5["🔔 Notify Legal Dept\n'New contract assigned for review'"]
+        SC5 --> SC6["✅ Toast: 'Contract submitted for Legal Review!'\nForm reset"]
+    end
+
+    SC6 --> MY_CONTRACTS
+
+    %% ════════════════════════════════════════════════════════════
+    %% PATH B — MY CONTRACTS (TRACKING)
+    %% ════════════════════════════════════════════════════════════
+    subgraph MY_CONTRACTS["📋 My Contracts (MyContracts.jsx)"]
+        direction TB
+        MC_LOAD["GET /api/user/contracts\nFetch all contracts by submittedBy email"]
+        MC_LOAD --> MC_FILTER["Filter Controls\n• Search: title · company · ID\n• Status: Draft / Under Review /\n  Pending Approval / Sent for Signature /\n  Executed / Rejected\n• Department: Sales · Legal ·\n  Finance · Procurement · HR\n• Date Range: All / Last 30 Days / YTD"]
+        MC_FILTER --> MC_TABLE["Sortable Contract Table\nREF ID · TITLE · COUNTERPARTY\nVALUE · STATUS · STAGE · ACTIONS"]
+        MC_TABLE --> MC_ACTION{Action on Row?}
+
+        MC_ACTION -- "👁 View" --> VIEWER["Open Document Viewer\nor GET /api/documents/:id/download"]
+        MC_ACTION -- "✏️ Edit (Draft only)" --> EDITOR
+
+        subgraph EDITOR["Contract Editor (Tiptap Rich Text)"]
+            ED1["GET /api/contracts/:id/editor-content\nLoad existing PDF/DOCX text or draftText"]
+            ED1 --> ED2["Rich Text Editor\nBold · Italic · Underline\nHeadings · Lists · Alignment\nFont Family · Text Color\nBlockquote · Divider"]
+            ED2 --> ED3{Action?}
+            ED3 -- "Save New Version" --> ED4["POST /api/contracts/:id/save-editor-content\nNew DOCX/PDF generated + versioned\nDocument record saved to DB"]
+            ED3 -- "Revert" --> ED1
+            ED3 -- "Cancel" --> MC_TABLE
+        end
+    end
+
+    %% ── STATUS TRACKING (VISIBLE IN TABLE) ─────────────────────
+    MC_TABLE --> STATUS_TRACK["Contract Status Progression\n(visible as colored badge)"]
+    STATUS_TRACK --> S1["⬜ Draft"]
+    STATUS_TRACK --> S2["🔵 Under Review (Legal → Finance → Compliance → Procurement)"]
+    STATUS_TRACK --> S3["🟡 Pending DOA Approval"]
+    STATUS_TRACK --> S4["🟢 Approved / Executed / Signed"]
+    STATUS_TRACK --> S5["🔴 Rejected"]
+    STATUS_TRACK --> S6["🟠 Sent for Signature"]
+
+    %% ── NOTIFICATIONS ──────────────────────────────────────────
+    SC6 -.-> NOTIF_WATCH["🔔 PM watches notifications\nfor CAS ready / DOA result / expiry alerts"]
+    NOTIF_WATCH -.-> DONE([✅ Contract Lifecycle Initiated])
+
+    %% ── STYLES ────────────────────────────────────────────────
+    classDef rejected fill:#ef4444,color:#fff,stroke:#b91c1c
+    classDef approved fill:#22c55e,color:#fff,stroke:#16a34a
+    classDef warning fill:#f59e0b,color:#000,stroke:#d97706
+    classDef notify fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef api fill:#0e7490,color:#fff,stroke:#0c4a6e
+    classDef terminal fill:#0f172a,color:#e2e8f0,stroke:#334155
+    classDef neutral fill:#1e293b,color:#cbd5e1,stroke:#475569
+
+    class F_ERR,F_ERR2,C_ERR,VP_BLOCK,S5 rejected
+    class SC2,SC6,DS2,S4,VP_SUBMIT approved
+    class S3,S6,DUE_WARN warning
+    class SC5,NOTIF_WATCH notify
+    class SC1,SC4,AG1,E2,F3,CSV2,MC_LOAD,ED4 api
+    class PM,DONE terminal
+    class DASH,MY_CONTRACTS,CONTRACTS_PAGE neutral

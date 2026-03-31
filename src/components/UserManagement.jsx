@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../services/authHelper';
 import styles from './Dashboard.module.css';
 import { Users, Plus, Trash2, Mail, UserPlus, Edit2 } from 'lucide-react';
 
@@ -13,7 +14,9 @@ const UserManagement = () => {
     const fetchUsers = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/admin/users');
+            const res = await fetch('/api/admin/users', {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             setUsers(data.filter(u => u.role === 'User'));
         } catch (err) {
@@ -35,7 +38,7 @@ const UserManagement = () => {
 
             const res = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(newUser)
             });
             if (res.ok) {
@@ -75,7 +78,10 @@ const UserManagement = () => {
     const handleDeleteUser = async (id) => {
         if (!window.confirm("Are you sure you want to delete this user account?")) return;
         try {
-            const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/users/${id}`, { 
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             if (res.ok) fetchUsers();
         } catch (err) {
             console.error("Delete user failed", err);

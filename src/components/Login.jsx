@@ -32,25 +32,28 @@ const Login = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
-    const [users, setUsers] = useState([]);
 
-    useEffect(() => {
-        fetch('/api/admin/users-with-auth')
-            .then(r => r.json())
-            .then(data => setUsers(data))
-            .catch(err => console.error('Failed to fetch users', err));
-    }, []);
-
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        const user = users.find(u => u.email === email && u.password === password);
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
 
-        if (user) {
-            onLogin(user);
-        } else {
-            setError('Invalid email or password. Please try again.');
+            if (response.ok) {
+                const user = await response.json();
+                onLogin(user);
+            } else {
+                const data = await response.json();
+                setError(data.detail || 'Invalid email or password. Please try again.');
+            }
+        } catch (err) {
+            console.error('Login failed', err);
+            setError('An error occurred during login. Please try again.');
         }
     };
 

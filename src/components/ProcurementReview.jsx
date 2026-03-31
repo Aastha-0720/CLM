@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './ReviewPage.module.css';
 import { contractService } from '../services/contractService';
+import { getAuthHeaders } from '../services/authHelper';
 
 const ProcurementReview = ({ user }) => {
     const [selectedContract, setSelectedContract] = useState(null);
@@ -107,7 +108,7 @@ const ProcurementReview = ({ user }) => {
 
             await fetch('/api/contracts/' + id + '/save-review-comment', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     department: 'Procurement',
                     comment: finalComment,
@@ -455,7 +456,31 @@ const ProcurementReview = ({ user }) => {
                 <div className={styles.splitModalOverlay}>
                     <div className={styles.splitModalContainer} style={{ display: 'flex' }}>
                         
-                        <div className={styles.reviewPane} style={{ flex: 1, borderLeft: 'none', maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}>
+                        <div className={styles.documentPane}>
+                            <div className={styles.documentHeader}>
+                                <span className={styles.documentTitle}>{selectedContract.title}</span>
+                            </div>
+                            <div className={styles.documentViewerPlaceholder}>
+                                <div className={styles.placeholderIcon}>📄</div>
+                                <div style={{ 
+                                    whiteSpace: 'pre-wrap', 
+                                    textAlign: 'left', 
+                                    width: '100%', 
+                                    fontSize: '14px', 
+                                    color: 'var(--text-secondary)',
+                                    padding: '24px',
+                                    maxHeight: '70vh',
+                                    overflowY: 'auto',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    borderRadius: '88px',
+                                    fontFamily: 'monospace'
+                                }}>
+                                    {selectedContract.extractedText || 'No text extracted for this document.'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.reviewPane} style={{ flex: 4, maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}>
                             <div className={styles.reviewPaneHeader}>
                                 <div>
                                     <div className={styles.tabGroup}>

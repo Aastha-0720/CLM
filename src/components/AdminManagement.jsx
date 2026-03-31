@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../services/authHelper';
 import styles from './Dashboard.module.css'; // Reusing some table styles
 import { Shield, Plus, Trash2, Mail, User as UserIcon, Edit2 } from 'lucide-react';
 
@@ -13,7 +14,9 @@ const AdminManagement = () => {
     const fetchAdmins = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/admin/users');
+            const res = await fetch('/api/admin/users', {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             // Filter only admin-like roles
             const adminRoles = ['Admin', 'Legal', 'Finance', 'Compliance', 'Procurement', 'Manager', 'CEO'];
@@ -37,7 +40,7 @@ const AdminManagement = () => {
             
             const res = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify(newAdmin)
             });
             if (res.ok) {
@@ -77,7 +80,10 @@ const AdminManagement = () => {
     const handleDeleteAdmin = async (id) => {
         if (!window.confirm("Are you sure you want to delete this admin account?")) return;
         try {
-            const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/users/${id}`, { 
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             if (res.ok) fetchAdmins();
         } catch (err) {
             console.error("Delete admin failed", err);

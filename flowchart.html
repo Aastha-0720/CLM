@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Contrax CLM - Legal Workflow</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0f172a;
+      color: white;
+      padding: 20px;
+    }
+    .mermaid {
+      background: #111827;
+      padding: 20px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Contrax CLM — Legal Team / Chief Legal Officer Workflow</h2>
+
+<div class="mermaid">
+flowchart TD
+
+    START([New Contract Submitted])
+    START --> NOTIFY["Legal Team Notified"]
+    NOTIFY --> QUEUE["Legal Review Queue"]
+
+    QUEUE --> FILTER{Apply Filters?}
+    FILTER -- Yes --> FILT_OPTS["Filter Options"]
+    FILT_OPTS --> CONTRACT_LIST
+    FILTER -- No --> CONTRACT_LIST
+
+    CONTRACT_LIST["Filtered Contract List"]
+
+    CONTRACT_LIST --> DEADLINE{Days Pending?}
+    DEADLINE -- "≤ 3 days" --> DUE_OK["Due in 3 Days"]
+    DEADLINE -- "4–5 days" --> DUE_WARN["Approaching Deadline"]
+    DEADLINE -- "> 5 days" --> DUE_OVER["OVERDUE"]
+
+    DUE_OVER --> ESC_PROMPT{Already Escalated?}
+    ESC_PROMPT -- No --> ESC_BTN["Escalate Button"]
+    ESC_PROMPT -- Yes --> ESC_DONE["Already Escalated"]
+
+    ESC_BTN --> ESC_MODAL["Escalation Modal"]
+    ESC_MODAL --> ESC_API["API Call"]
+    ESC_API --> ESC_NOTIF["Notify Manager + CEO"]
+
+    DUE_OK & DUE_WARN & ESC_DONE --> OPEN_ACT
+
+    subgraph CARD_ACTIONS["Contract Card Actions"]
+        OPEN_ACT{Action?}
+        OPEN_ACT -- "View & Review" --> REVIEW_PANE
+        OPEN_ACT -- "Quick Approve" --> QUICK_APPROVE
+        OPEN_ACT -- "Quick Reject" --> QUICK_REJECT
+    end
+
+    subgraph REVIEW_PANE["Review Modal"]
+        LEFT_PANE["Document View"]
+        LEFT_PANE --> RIGHT_PANE{Tab?}
+
+        RIGHT_PANE -- Review --> REVIEW_TAB
+        RIGHT_PANE -- History --> TIMELINE_TAB
+
+        subgraph REVIEW_TAB
+            META["Metadata"]
+            META --> CLAUSE_PROG["Clause Progress"]
+            CLAUSE_PROG --> CLAUSE_LIST
+            CLAUSE_LIST --> COMMENTS_BOX
+        end
+
+        subgraph TIMELINE_TAB
+            HIST["Activity Timeline"]
+        end
+    end
+
+    subgraph DECISION_BTNS
+        BTN_APPROVE["Approve"]
+        BTN_REQUEST["Request Changes"]
+        BTN_REJECT["Reject"]
+    end
+
+    BTN_APPROVE --> SUBMIT_API
+    BTN_REQUEST --> SUBMIT_API
+    BTN_REJECT --> SUBMIT_REJ_API
+    QUICK_APPROVE --> SUBMIT_API
+    QUICK_REJECT --> SUBMIT_REJ_API
+
+    SUBMIT_API --> SAVE_COMMENT
+    SAVE_COMMENT --> DECISION
+
+    DECISION{Legal Decision?}
+
+    DECISION -- "Changes Requested" --> CHANGES
+    CHANGES --> QUEUE
+
+    DECISION -- "Approved" --> ADVANCE
+    ADVANCE --> FIN_START([Finance Review Begins])
+
+    SUBMIT_REJ_API --> REJECTED["Rejected"]
+
+    subgraph CLO["CLO Oversight"]
+        CLO_DASH["Dashboard"]
+        CLO_AUDIT["Audit Logs"]
+        CLO_REPORTS["Reports"]
+        CLO_NOTIF["Escalations"]
+    end
+
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>

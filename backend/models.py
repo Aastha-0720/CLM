@@ -151,3 +151,27 @@ class User(BaseModel):
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
+
+class WhitelistEntry(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    domain: str  # lowercase, unique
+    isActive: bool = True
+    createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class DigInkDocument(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    contractId: str
+    diginkDocumentId: str
+    status: str = "Pending"
+    createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updatedAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}

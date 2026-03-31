@@ -10,15 +10,49 @@ import {
 import OutlookPanel from './components/OutlookPanel';
 import Login from './components/Login';
 
+// Access Denied Component
+const AccessDenied = ({ onBack }) => (
+    <div style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        padding: '20px',
+        textAlign: 'center'
+    }}>
+        <div style={{ fontSize: '72px', marginBottom: '20px', color: '#EF4444' }}>403</div>
+        <h1 style={{ marginBottom: '10px' }}>Access Denied</h1>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', maxWidth: '400px' }}>
+            You do not have permission to view this page. Please contact your administrator if you believe this is an error.
+        </p>
+        <button 
+            onClick={onBack}
+            style={{ 
+                padding: '12px 24px', 
+                background: 'var(--primary-color)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600'
+            }}
+        >
+            Back to Dashboard
+        </button>
+    </div>
+);
+
 // Helper to protect routes
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
     if (!user) {
         return <Navigate to="/login" replace />;
     }
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        // Redirect to their own dashboard if they try to access wrong area
-        const dashPath = `/${user.role.toLowerCase()}/dashboard`;
-        return <Navigate to={dashPath} replace />;
+        // Redirect to unauthorized page
+        return <Navigate to="/unauthorized" replace />;
     }
     return children;
 };
@@ -87,6 +121,19 @@ function AppContent() {
                     <ProtectedRoute user={user} allowedRoles={['Superadmin']}>
                         <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
                     </ProtectedRoute>
+                } />
+
+                {/* Other Internal Roles */}
+                {['Legal', 'Finance', 'Compliance', 'Procurement', 'Sales', 'Manager', 'CEO'].map(role => (
+                    <Route key={role} path={`/${role.toLowerCase()}/*`} element={
+                        <ProtectedRoute user={user} allowedRoles={[role]}>
+                            <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                        </ProtectedRoute>
+                    } />
+                ))}
+
+                <Route path="/unauthorized" element={
+                    <AccessDenied onBack={() => navigate('/')} />
                 } />
 
                 {/* Default Redirects */}

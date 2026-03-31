@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getAuthHeaders } from '../services/authHelper';
 import styles from './OutlookPanel.module.css';
 import logo from '../assets/Artboard 1 copy 15.svg';
 import UploadContract from './UploadContract';
 import CAS from './CAS';
-import DOAApprovals from './DOAApprovals';
+import Approvals from './Approvals';
 import Reports from './Reports';
 import Dashboard from './Dashboard';
 import Reviews from './Reviews';
@@ -11,8 +12,10 @@ import Settings from './Settings';
 import AdminManagement from './AdminManagement';
 import UserManagement from './UserManagement';
 import AuditLogs from './AuditLogs';
+import UserAuditLogs from './UserAuditLogs';
 import MyContracts from './MyContracts';
 import DocumentViewer from './DocumentViewer';
+import NotificationsPanel from './NotificationsPanel';
 
 import { contractService } from '../services/contractService';
 import { LayoutDashboard, Upload, Scale, FileText, 
@@ -20,6 +23,17 @@ import { LayoutDashboard, Upload, Scale, FileText,
          Bell, Search, Sun, Moon, Shield, Users, ClipboardList } from 'lucide-react';
 
 import { useNavigate, useLocation } from 'react-router-dom';
+
+const NavItem = ({ item, active, onClick }) => (
+    <button
+        className={`${styles.navItem} ${active ? styles.active : ''}`}
+        onClick={onClick}
+    >
+        {item.icon}
+        <span className={styles.label}>{item.name}</span>
+        {active && <div className={styles.activeIndicator}></div>}
+    </button>
+);
 
 const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const navigate = useNavigate();
@@ -39,6 +53,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
             'reviews': 'Reviews',
             'cas': 'CAS',
             'doa-approvals': 'DOA Approvals',
+            'approvals': 'Approvals',
             'reports': 'Reports',
             'settings': 'Settings',
             'manage-admins': 'Manage Admins',
@@ -58,6 +73,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
             'Reviews': 'reviews',
             'CAS': 'cas',
             'DOA Approvals': 'doa-approvals',
+            'Approvals': 'approvals',
             'Reports': 'reports',
             'Settings': 'settings',
             'Manage Admins': 'manage-admins',
@@ -112,9 +128,14 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                     'Contracts', 'Settings', 'Reports', 'Audit Logs'
                 ].includes(item.name));
             case 'User':
-                return allNavItems.filter(item => [
+                return allNavItems.map(item => {
+                    if (item.name === 'DOA Approvals') {
+                        return { ...item, name: 'Approvals' };
+                    }
+                    return item;
+                }).filter(item => [
                     'Dashboard', 'My Contracts', 'Create Contract', 
-                    'Reviews', 'DOA Approvals', 'Settings'
+                    'Reviews', 'Approvals', 'Settings', 'Audit Logs'
                 ].includes(item.name));
             case 'Legal':
             case 'Finance':
@@ -187,7 +208,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, [user?.role]);
+    }, [user?.role, user?.email]);
 
     // Click outside handler
     useEffect(() => {
@@ -207,8 +228,20 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
 
     const handleClearNotifications = async () => {
         try {
-            await fetch('/api/admin/clear-notifications', { method: 'DELETE' });
+            await fetch('/api/admin/clear-notifications', { 
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             setNotifs([]);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleMarkRead = async (id) => {
+        try {
+            const updatedNotifs = await contractService.markNotificationRead(id, user?.role);
+            setNotifs(updatedNotifs || []);
         } catch (err) {
             console.error(err);
         }
@@ -337,67 +370,20 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                             {theme === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
                         </button>
 
-                        <div className={styles.notifTrigger} ref={notifRef} onClick={() => setShowNotifs(!showNotifs)}>
-                            <span className={styles.notifIcon}><Bell size={20} strokeWidth={1.5} /></span>
-                            {notifs.length > 0 && (
-                                <span className={styles.notifBadge}>{notifs.length}</span>
-                            )}
+                        <div className={styles.notifTrigger} ref={notifRef}>
+                            <div className={styles.notifIcon} onClick={() => setShowNotifs(!showNotifs)}>
+                                <Bell size={20} strokeWidth={1.5} />
+                                {notifs.length > 0 && (
+                                    <span className={styles.notifBadge}>{notifs.length}</span>
+                                )}
+                            </div>
+                            
                             {showNotifs && (
-                                <div className={styles.notifDropdown} onClick={(e) => e.stopPropagation()}>
-                                    <div className={styles.notifHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span>Notifications ({notifs.length})</span>
-                                        {notifs.length > 0 && (
-                                            <button 
-                                                onClick={handleClearNotifications}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', padding: '4px' }}
-                                                title="Clear All Notifications"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                  <polyline points="3 6 5 6 21 6"/>
-                                                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                                  <path d="M10 11v6"/>
-                                                  <path d="M14 11v6"/>
-                                                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                                                </svg>
-                                                Clear All
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
-                                        {notifs.length > 0 ? notifs.map(n => {
-                                            const timeAgo = (() => {
-                                                const diff = Math.floor((Date.now() - new Date(n.createdAt).getTime()) / 1000);
-                                                if (diff < 60) return 'Just now';
-                                                if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-                                                if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-                                                return `${Math.floor(diff / 86400)}d ago`;
-                                            })();
-                                            return (
-                                                <div key={n.id} className={styles.notifItem} onClick={async () => {
-                                                    try {
-                                                        const updated = await contractService.markNotificationRead(n.id, user?.role || 'Admin');
-                                                        setNotifs(updated || []);
-                                                    } catch (e) { console.error(e); }
-                                                    setShowNotifs(false);
-                                                    setActiveNav('Reviews');
-                                                }}>
-                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                                        <span style={{ fontSize: '16px', marginTop: '2px' }}>🟢</span>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div className={styles.notifItemTitle}>{n.message}</div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-                                                                <span className={styles.notifItemSub}>{timeAgo}</span>
-                                                                <span className={styles.notifItemBadge}>→ {n.action}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }) : (
-                                            <div className={styles.notifEmpty}>No pending notifications</div>
-                                        )}
-                                    </div>
-                                </div>
+                                <NotificationsPanel 
+                                    notifs={notifs} 
+                                    onMarkRead={handleMarkRead}
+                                    onClose={() => setShowNotifs(false)}
+                                />
                             )}
                         </div>
                     </div>
@@ -436,8 +422,8 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                         if (activeNav === 'CAS') {
                             return <div className={styles.fullWidthSection}><CAS user={user} /></div>;
                         }
-                        if (activeNav === 'DOA Approvals') {
-                            return <div className={styles.fullWidthSection}><DOAApprovals user={user} onNavigate={setActiveNav} /></div>;
+                        if (activeNav === 'DOA Approvals' || activeNav === 'Approvals') {
+                            return <div className={styles.fullWidthSection}><Approvals user={user} onNavigate={setActiveNav} /></div>;
                         }
                         if (activeNav === 'Reviews') {
                             return <div className={styles.fullWidthSection}><Reviews user={user} /></div>;
@@ -458,6 +444,9 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                             return <div className={styles.fullWidthSection}><UserManagement /></div>;
                         }
                         if (activeNav === 'Audit Logs') {
+                            if (user?.role === 'User') {
+                                return <div className={styles.fullWidthSection}><UserAuditLogs /></div>;
+                            }
                             return <div className={styles.fullWidthSection}><AuditLogs /></div>;
                         }
                         
@@ -506,16 +495,5 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
         </div>
     );
 };
-
-const NavItem = ({ item, active, onClick }) => (
-    <button
-        className={`${styles.navItem} ${active ? styles.active : ''}`}
-        onClick={onClick}
-    >
-        {item.icon}
-        <span className={styles.label}>{item.name}</span>
-        {active && <div className={styles.activeIndicator}></div>}
-    </button>
-);
 
 export default OutlookPanel;

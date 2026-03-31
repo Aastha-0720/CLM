@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './AiVerificationPanel.module.css';
 import { contractService } from '../../services/contractService';
+import { getAuthHeaders } from '../../services/authHelper';
 
 const DEPT_COLORS = {
     Legal:       { bg: 'rgba(37,99,235,0.15)',  text: '#60a5fa' },
@@ -58,19 +59,24 @@ const AiVerificationPanel = ({ data, file, onSuccess }) => {
     const handleSubmit = async () => {
         if (!verificationResult || verificationResult.complianceScore < 60) return;
         setIsSubmitting(true);
+        
         try {
+            const savedUser = JSON.parse(localStorage.getItem('clm-user') || '{}');
+            const userEmail = savedUser.email || 'Admin';
+            
             const valueNum = parseFloat(
                 (data.contractValue || '0').replace(/[^0-9.]/g, '')
             ) || 0;
+
             const response = await fetch('/api/contracts/create', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     title: data.title || (file ? file.name : (data.counterparty || 'New Contract')),
                     company: data.counterparty || 'Unknown',
                     value: valueNum,
                     department: 'Legal',
-                    submittedBy: 'Admin',
+                    submittedBy: userEmail,
                     duration: data.duration || null,
                     category: data.category || null,
                     risk_classification: data.riskLevel || null,
@@ -78,6 +84,7 @@ const AiVerificationPanel = ({ data, file, onSuccess }) => {
                     clauses: data.clauses || [],
                 })
             });
+            
             if (!response.ok) throw new Error('Failed');
             const result = await response.json();
             const contractId = result.id;
@@ -92,6 +99,7 @@ const AiVerificationPanel = ({ data, file, onSuccess }) => {
                 if (onSuccess) onSuccess();
             }, 1500);
         } catch (err) {
+            console.error("Submission error:", err);
             showToast('Failed to submit contract.', 'error');
         } finally {
             setIsSubmitting(false);

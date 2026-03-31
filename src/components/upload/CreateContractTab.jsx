@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
 import styles from '../UploadContract.module.css';
 import { contractService } from '../../services/contractService';
-import { FileText, Save, Send, Upload, CheckCircle } from 'lucide-react';
+import { getAuthHeaders } from '../../services/authHelper';
+import AiVerificationPanel from './AiVerificationPanel';
 
 const CreateContractTab = ({ onDataChange }) => {
     const [formData, setFormData] = useState({
         title: '',
-        company: '',
-        value: '',
+        counterpartyName: '',
+        contractValue: '',
         duration: '',
         businessUnit: '',
-        department: 'Legal',
-        riskLevel: 'Medium'
+        category: '',
+        riskLevel: 'Medium',
+        startDate: '',
+        endDate: '',
+        expiryDate: ''
     });
-    
-    const [file, setFile] = useState(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedDraft, setGeneratedDraft] = useState('');
     const [errors, setErrors] = useState({});
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -26,280 +30,376 @@ const CreateContractTab = ({ onDataChange }) => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        
+        const updatedFormData = { ...formData, [name]: value };
+        setFormData(updatedFormData);
         if (onDataChange) {
-            onDataChange({ ...formData, [name]: value });
+            onDataChange(updatedFormData);
         }
-        
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
-        }
-    };
-
-    const handleFileChange = (e) => {
-        const selected = e.target.files[0];
-        if (selected && (selected.type === 'application/pdf' || selected.name.endsWith('.docx'))) {
-            setFile(selected);
-            if (errors.file) setErrors(prev => ({ ...prev, file: '' }));
-        } else {
-            setErrors(prev => ({ ...prev, file: 'Please upload a valid PDF or DOCX file.' }));
         }
     };
 
     const validateForm = () => {
         const newErrors = {};
         if (!formData.title.trim()) newErrors.title = 'Title is required';
-        if (!formData.company.trim()) newErrors.company = 'Counterparty Name is required';
-        if (!formData.value.trim()) newErrors.value = 'Contract Value is required';
+        if (!formData.counterpartyName.trim()) newErrors.counterpartyName = 'Counterparty is required';
+        if (!formData.contractValue.trim()) newErrors.contractValue = 'Value is required';
         if (!formData.duration.trim()) newErrors.duration = 'Duration is required';
         if (!formData.businessUnit.trim()) newErrors.businessUnit = 'Business Unit is required';
-        if (!file) newErrors.file = 'A document upload is required';
+        if (!formData.category) newErrors.category = 'Category is required';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (actionType) => {
+    const handleGenerateDraft = async (e) => {
+        e.preventDefault();
         if (!validateForm()) return;
 
-        setIsSubmitting(true);
-        const isDraft = actionType === 'draft';
-        
-        const payload = {
-            ...formData,
-            stage: isDraft ? 'Draft' : 'Under Review',
-            status: isDraft ? 'Draft' : 'Pending Approval'
-        };
+        setIsGenerating(true);
+        setGeneratedDraft('');
 
         try {
-            const valueNum = parseFloat(formData.value.replace(/[^0-9.]/g, '')) || 0;
-            
-            // 1. Create the contract entry
-            const token = localStorage.getItem('token');
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            
-            // If they are logged in using headers (the app uses specific headers in authHelper usually:
-            // "X-User-Role", "X-User-Email" -- wait, `contractService.js` `getAuthHeaders` does this.
-            // I'll fetch `authHeaders` from the module manually to be safe.
-            const { getAuthHeaders } = await import('../../services/authHelper.js');
-            const authHeaders = getAuthHeaders();
-            
-            const response = await fetch('/api/contracts/create', {
-                method: 'POST',
-                headers: { ...headers, ...authHeaders },
-                body: JSON.stringify({
-                    title: formData.title,
-                    company: formData.company,
-                    value: valueNum,
-                    department: formData.department,
-                    duration: formData.duration,
-                    risk_classification: formData.riskLevel,
-                    business_unit: formData.businessUnit,
-                    stage: payload.stage,
-                    status: payload.status,
-                    clauses: [] // Manual upload so no extracted clauses initially
-                })
-            });
-
-            if (!response.ok) throw new Error('API Error creating contract');
-            const result = await response.json();
-
-            // 2. Upload the associated document
-            if (result.id && file) {
-                await contractService.uploadContractDocument(result.id, file);
-            }
-
-            showToast(isDraft ? 'Draft saved successfully!' : 'Contract submitted for review!');
-            
-            // Reset form
-            setFormData({
-                title: '', company: '', value: '', duration: '', businessUnit: '', department: 'Legal', riskLevel: 'Medium'
-            });
-            setFile(null);
+            const draft = await contractService.generateContractDraft(formData);
+            setGeneratedDraft(draft);
         } catch (error) {
-            console.error('Submission failed:', error);
-            showToast('Failed to create contract.', 'error');
+            alert('Failed to generate contract draft.');
         } finally {
-            setIsSubmitting(false);
+            setIsGenerating(false);
         }
     };
 
+    const handleReset = () => {
+        setGeneratedDraft('');
+        setFormData({
+            title: '',
+            counterpartyName: '',
+            contractValue: '',
+            duration: '',
+            businessUnit: '',
+            category: '',
+            riskLevel: 'Medium',
+            startDate: '',
+            endDate: '',
+            expiryDate: ''
+        });
+    };
+
+    if (generatedDraft) {
+        const panelData = {
+            title: formData.title,
+            counterparty: formData.counterpartyName,
+            contractValue: formData.contractValue,
+            duration: formData.duration,
+            category: formData.category,
+            riskLevel: formData.riskLevel,
+            businessUnit: formData.businessUnit,
+            clauses: [],
+            complianceScore: 0,
+            risks: [],
+            missingFields: [],
+        };
+        return (
+            <div className={styles.formPanel} style={{ animation: 'fadeIn 0.5s ease' }}>
+                <div className={styles.formHeader}>
+                    <div className={styles.formTitleGroup}>
+                        <h3 className={styles.formTitle}>Draft Generated Successfully</h3>
+                        <p className={styles.formSub}>AI has prepared a draft based on your inputs. Review the content below.</p>
+                    </div>
+                </div>
+
+                <div style={{
+                    background: 'var(--bg-card)',
+                    padding: '2rem',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.8',
+                    marginBottom: '2rem',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                }}>
+                    {generatedDraft.split('\n').map((line, index) => {
+                        // H1 heading
+                        if (line.startsWith('# ')) {
+                            return <h2 key={index} style={{ 
+                                fontSize: '1.2rem', fontWeight: '700', 
+                                color: '#00C9B1', marginBottom: '8px', 
+                                marginTop: '16px' 
+                            }}>{line.replace('# ', '')}</h2>;
+                        }
+                        // H2 heading
+                        if (line.startsWith('## ')) {
+                            return <h3 key={index} style={{ 
+                                fontSize: '1rem', fontWeight: '600', 
+                                color: 'var(--text-primary)', 
+                                marginBottom: '6px', marginTop: '14px',
+                                borderBottom: '1px solid var(--border-color)',
+                                paddingBottom: '4px'
+                            }}>{line.replace('## ', '')}</h3>;
+                        }
+                        // Bold text **text**
+                        if (line.includes('**')) {
+                            const parts = line.split('**');
+                            return <p key={index} style={{ marginBottom: '6px' }}>
+                                {parts.map((part, i) => 
+                                    i % 2 === 1 
+                                        ? <strong key={i}>{part}</strong> 
+                                        : part
+                                )}
+                            </p>;
+                        }
+                        // Empty line
+                        if (line.trim() === '') {
+                            return <br key={index} />;
+                        }
+                        // Normal line
+                        return <p key={index} style={{ 
+                            marginBottom: '4px',
+                            color: 'var(--text-secondary)'
+                        }}>{line}</p>;
+                    })}
+                </div>
+
+                <div className={styles.formFooter}>
+                    <button className={styles.cancelBtn} onClick={() => setGeneratedDraft('')}>Edit Details</button>
+                    <button className={styles.cancelBtn} onClick={handleReset}>Start Over</button>
+                </div>
+
+                <AiVerificationPanel data={panelData} onSuccess={handleReset} />
+            </div>
+        );
+    }
+
     return (
-        <div className={styles.formPanel} style={{ animation: 'fadeIn 0.4s ease' }}>
-            <style dangerouslySetInnerHTML={{ __html: `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }` }} />
-            
+        <div className={styles.formPanel}>
             <div className={styles.formHeader}>
                 <div className={styles.formTitleGroup}>
-                    <h3 className={styles.formTitle}>Initialize New Contract</h3>
-                    <p className={styles.formSub}>Manually enter contract details and upload the source document.</p>
+                    <h3 className={styles.formTitle}>Create Manual Contract</h3>
+                    <p className={styles.formSub}>Initialize a new contract record and generate a draft using AI.</p>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                {/* Title */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Contract Title <span style={{color: '#ef4444'}}>*</span></label>
-                    <input 
-                        type="text" 
-                        name="title" 
-                        value={formData.title} 
-                        onChange={handleInputChange} 
-                        className={styles.input} 
-                        placeholder="e.g. Master Service Agreement" 
-                    />
-                    {errors.title && <span style={{color: '#ef4444', fontSize: '12px'}}>{errors.title}</span>}
+            <form onSubmit={handleGenerateDraft} className={styles.form}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    <div className={styles.formGroup}>
+                        <label>Contract Title *</label>
+                        <input
+                            name="title"
+                            className={`${styles.input} ${errors.title ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="e.g. Service Level Agreement 2026"
+                            value={formData.title}
+                            onChange={handleInputChange}
+                        />
+                        {errors.title && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.title}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Counterparty Name *</label>
+                        <input
+                            name="counterpartyName"
+                            className={`${styles.input} ${errors.counterpartyName ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="Enter legal entity name"
+                            value={formData.counterpartyName}
+                            onChange={handleInputChange}
+                        />
+                        {errors.counterpartyName && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.counterpartyName}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Contract Value *</label>
+                        <input
+                            name="contractValue"
+                            className={`${styles.input} ${errors.contractValue ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="e.g. $50,000"
+                            value={formData.contractValue}
+                            onChange={handleInputChange}
+                        />
+                        {errors.contractValue && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.contractValue}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Duration *</label>
+                        <input
+                            name="duration"
+                            className={`${styles.input} ${errors.duration ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="e.g. 12 Months"
+                            value={formData.duration}
+                            onChange={handleInputChange}
+                        />
+                        {errors.duration && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.duration}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Start Date</label>
+                        <input
+                            name="startDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.startDate}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>End Date</label>
+                        <input
+                            name="endDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.endDate}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Expiry Date</label>
+                        <input
+                            name="expiryDate"
+                            className={styles.input}
+                            type="date"
+                            value={formData.expiryDate}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Business Unit *</label>
+                        <input
+                            name="businessUnit"
+                            className={`${styles.input} ${errors.businessUnit ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="e.g. IT Operations"
+                            value={formData.businessUnit}
+                            onChange={handleInputChange}
+                        />
+                        {errors.businessUnit && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.businessUnit}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Category *</label>
+                        <select
+                            name="category"
+                            className={`${styles.select} ${errors.category ? styles.inputError : ''}`}
+                            value={formData.category}
+                            onChange={handleInputChange}
+                        >
+                            <option value="">Select Category</option>
+                            <option value="Software">Software Licensing</option>
+                            <option value="Hardware">Hardware Procurement</option>
+                            <option value="Services">Professional Services</option>
+                            <option value="Facility">Facility Management</option>
+                            <option value="Marketing">Marketing & Advertising</option>
+                        </select>
+                        {errors.category && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.category}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Risk Level</label>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            {['Low', 'Medium', 'High'].map(level => (
+                                <button
+                                    key={level}
+                                    type="button"
+                                    onClick={() => {
+                                        const updatedFormData = { ...formData, riskLevel: level };
+                                        setFormData(updatedFormData);
+                                        if (onDataChange) {
+                                            onDataChange(updatedFormData);
+                                        }
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.75rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        background: formData.riskLevel === level
+                                            ? (level === 'Low' ? 'rgba(16, 185, 129, 0.2)' : level === 'Medium' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)')
+                                            : 'rgba(15, 23, 42, 0.4)',
+                                        color: formData.riskLevel === level
+                                            ? (level === 'Low' ? '#34d399' : level === 'Medium' ? '#fbbf24' : '#f87171')
+                                            : '#94a3b8',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {level}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Counterparty */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Counterparty Name <span style={{color: '#ef4444'}}>*</span></label>
-                    <input 
-                        type="text" 
-                        name="company" 
-                        value={formData.company} 
-                        onChange={handleInputChange} 
-                        className={styles.input} 
-                        placeholder="e.g. Acme Corp." 
-                    />
-                    {errors.company && <span style={{color: '#ef4444', fontSize: '12px'}}>{errors.company}</span>}
+                <div className={styles.formFooter} style={{ marginTop: '1rem' }}>
+                    <button type="button" className={styles.cancelBtn} onClick={handleReset}>Clear Form</button>
+                    <button
+                        type="button"
+                        className={styles.cancelBtn}
+                        onClick={async () => {
+                            if (!formData.title || !formData.counterpartyName) {
+                                showToast('Please fill Title and Counterparty Name', 'error');
+                                return;
+                            }
+                            try {
+                                const response = await fetch('/api/contracts/save-draft', {
+                                    method: 'POST',
+                                    headers: getAuthHeaders(),
+                                    body: JSON.stringify({
+                                        title: formData.title,
+                                        company: formData.counterpartyName,
+                                        value: parseFloat((formData.contractValue || '0').replace(/[^0-9.]/g, '')) || 0,
+                                        department: formData.businessUnit || 'Legal',
+                                        category: formData.category || 'General',
+                                        riskLevel: formData.riskLevel || 'Medium',
+                                        duration: formData.duration || '',
+                                        startDate: formData.startDate || '',
+                                        endDate: formData.endDate || '',
+                                        expiryDate: formData.expiryDate || '',
+                                        draftText: generatedDraft || '',
+                                        submittedBy: 'Admin'
+                                    })
+                                });
+                                if (!response.ok) throw new Error('Failed');
+                                showToast('Draft saved successfully!');
+                                handleReset();
+                            } catch (err) {
+                                showToast('Failed to save draft.', 'error');
+                            }
+                        }}
+                    >
+                        💾 Save as Draft
+                    </button>
+                    <button type="submit" className={styles.submitBtn} disabled={isGenerating}>
+                        {isGenerating ? 'AI Generating Draft...' : 'Generate Contract Draft'}
+                    </button>
                 </div>
-
-                {/* Value */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Contract Value ($) <span style={{color: '#ef4444'}}>*</span></label>
-                    <input 
-                        type="text" 
-                        name="value" 
-                        value={formData.value} 
-                        onChange={handleInputChange} 
-                        className={styles.input} 
-                        placeholder="e.g. 50000" 
-                    />
-                    {errors.value && <span style={{color: '#ef4444', fontSize: '12px'}}>{errors.value}</span>}
-                </div>
-
-                {/* Duration */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Duration <span style={{color: '#ef4444'}}>*</span></label>
-                    <input 
-                        type="text" 
-                        name="duration" 
-                        value={formData.duration} 
-                        onChange={handleInputChange} 
-                        className={styles.input} 
-                        placeholder="e.g. 12 Months" 
-                    />
-                    {errors.duration && <span style={{color: '#ef4444', fontSize: '12px'}}>{errors.duration}</span>}
-                </div>
-
-                {/* Business Unit */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Business Unit <span style={{color: '#ef4444'}}>*</span></label>
-                    <input 
-                        type="text" 
-                        name="businessUnit" 
-                        value={formData.businessUnit} 
-                        onChange={handleInputChange} 
-                        className={styles.input} 
-                        placeholder="e.g. APAC Operations" 
-                    />
-                    {errors.businessUnit && <span style={{color: '#ef4444', fontSize: '12px'}}>{errors.businessUnit}</span>}
-                </div>
-
-                {/* Department */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Department</label>
-                    <select name="department" value={formData.department} onChange={handleInputChange} className={styles.select}>
-                        <option value="Legal">Legal</option>
-                        <option value="Sales">Sales</option>
-                        <option value="Finance">Finance</option>
-                        <option value="Procurement">Procurement</option>
-                        <option value="HR">HR</option>
-                    </select>
-                </div>
-
-                {/* Risk Level */}
-                <div className={styles.inputGroup}>
-                    <label className={styles.label}>Risk Level</label>
-                    <select name="riskLevel" value={formData.riskLevel} onChange={handleInputChange} className={styles.select}>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* File Upload Section */}
-            <div className={styles.inputGroup} style={{ marginBottom: '32px' }}>
-                <label className={styles.label}>Upload Document <span style={{color: '#ef4444'}}>*</span></label>
-                <div style={{
-                    border: '2px dashed rgba(255,255,255,0.1)', 
-                    padding: '30px', 
-                    borderRadius: '12px', 
-                    textAlign: 'center',
-                    background: 'rgba(255,255,255,0.02)',
-                    position: 'relative'
-                }}>
-                    <Upload size={32} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
-                    {file ? (
-                        <div style={{ color: '#10b981', fontWeight: '600' }}>{file.name}</div>
-                    ) : (
-                        <div style={{ color: 'var(--text-primary)' }}>Click to upload PDF or DOCX file</div>
-                    )}
-                    <input 
-                        type="file" 
-                        accept=".pdf,.docx" 
-                        onChange={handleFileChange} 
-                        style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
-                    />
-                </div>
-                {errors.file && <span style={{color: '#ef4444', fontSize: '12px', display: 'block', mt: '4px'}}>{errors.file}</span>}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
-                <button 
-                    onClick={() => handleSubmit('draft')} 
-                    disabled={isSubmitting}
-                    style={{
-                        padding: '10px 20px', borderRadius: '8px', fontWeight: '600',
-                        background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)',
-                        border: '1px solid var(--border-color)', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '8px'
-                    }}
-                >
-                    <Save size={18} />
-                    Save as Draft
-                </button>
-                <button 
-                    onClick={() => handleSubmit('submit')} 
-                    disabled={isSubmitting}
-                    style={{
-                        padding: '10px 24px', borderRadius: '8px', fontWeight: '600',
-                        background: '#3b82f6', color: '#fff',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                    }}
-                >
-                    <Send size={18} />
-                    {isSubmitting ? 'Processing...' : 'Submit for Review'}
-                </button>
-            </div>
-
-            {/* Toast */}
+            </form>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            `}} />
             {toast.show && (
                 <div style={{
-                    position: 'fixed', bottom: '24px', right: '24px',
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
                     background: toast.type === 'success' ? '#10B981' : '#EF4444',
-                    color: '#fff', padding: '14px 24px', borderRadius: '10px',
-                    fontWeight: '600', fontSize: '14px', zIndex: 9999,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px'
+                    color: '#fff',
+                    padding: '14px 24px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    zIndex: 9999,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
                 }}>
-                    <CheckCircle size={18} />
-                    {toast.message}
+                    {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
                 </div>
             )}
         </div>

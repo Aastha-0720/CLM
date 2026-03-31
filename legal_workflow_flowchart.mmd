@@ -1,0 +1,144 @@
+%% ============================================================
+%% Contrax CLM — Legal Team / Chief Legal Officer Workflow
+%% ============================================================
+
+flowchart TD
+
+    %% ── CONTRACT ARRIVES ──────────────────────────────────────
+    START([📋 New Contract Submitted])
+    START --> NOTIFY["🔔 Legal Team Notified\nstage: Under Review"]
+
+    NOTIFY --> QUEUE["Legal Review Queue\n(LegalReview.jsx)"]
+
+    %% ── QUEUE FILTERS ─────────────────────────────────────────
+    QUEUE --> FILTER{Apply Filters?}
+    FILTER -- Yes --> FILT_OPTS["Filter by:\n• Status: All / Pending / Reviewed / Overdue\n• Risk Level: Low / Medium / High\n• Value Range: Min – Max\n• Search: title, company\n• Due Date\n• Review Mode: Sequential / Parallel"]
+    FILT_OPTS --> CONTRACT_LIST
+    FILTER -- No --> CONTRACT_LIST
+
+    CONTRACT_LIST["📋 Filtered Contract List\n(Cards with deadline indicators)"]
+
+    %% ── DEADLINE INDICATORS ───────────────────────────────────
+    CONTRACT_LIST --> DEADLINE{Days Pending?}
+    DEADLINE -- "≤ 3 days" --> DUE_OK["🟢 Due in 3 Days"]
+    DEADLINE -- "4–5 days" --> DUE_WARN["🟡 Approaching Deadline"]
+    DEADLINE -- "> 5 days" --> DUE_OVER["🔴 OVERDUE"]
+
+    DUE_OVER --> ESC_PROMPT{Already\nEscalated?}
+    ESC_PROMPT -- No --> ESC_BTN["Escalate Button Shown"]
+    ESC_PROMPT -- Yes --> ESC_DONE["Already Escalated\n(read-only)"]
+
+    ESC_BTN --> ESC_MODAL["Escalation Modal\nEnter reason for escalation"]
+    ESC_MODAL --> ESC_API["POST /api/contracts/:id/escalate"]
+    ESC_API --> ESC_NOTIF["🔔 Manager + CEO Notified\n(escalation alert)"]
+
+    DUE_OK & DUE_WARN & ESC_DONE --> OPEN_ACT
+
+    %% ── ACTIONS ON CONTRACT CARD ──────────────────────────────
+    subgraph CARD_ACTIONS["Contract Card Actions"]
+        OPEN_ACT{Action\nChosen?}
+        OPEN_ACT -- "View & Review" --> REVIEW_PANE
+        OPEN_ACT -- "Quick Approve" --> QUICK_APPROVE
+        OPEN_ACT -- "Quick Reject" --> QUICK_REJECT
+    end
+
+    %% ── REVIEW PANE (SPLIT MODAL) ─────────────────────────────
+    subgraph REVIEW_PANE["📑 Split-Pane Review Modal"]
+        direction LR
+
+        LEFT_PANE["Left: Document Pane\n──────────────────\n• Contract title\n• Extracted contract text\n  (read-only, scrollable)\n• monospace display"]
+
+        RIGHT_PANE{Right Tab?}
+
+        LEFT_PANE --> RIGHT_PANE
+
+        RIGHT_PANE -- Review --> REVIEW_TAB
+        RIGHT_PANE -- History --> TIMELINE_TAB
+
+        subgraph REVIEW_TAB["Review Tab"]
+            META["Contract Metadata Grid\n• Title  • Counterparty\n• Value  • Risk Level\n• Submission Date  • Due Date\n• Current Status"]
+            META --> CLAUSE_PROG["Clause Progress Counter\nX of N clauses reviewed"]
+            CLAUSE_PROG --> CLAUSE_LIST
+
+            subgraph CLAUSE_LIST["Clause-Based Review"]
+                C1["Each Clause Card:\n• Clause title\n• Clause text\n• Status: Pending / Reviewed\n• 💬 Comments button (count)\n• Mark as Reviewed / Undo"]
+            end
+
+            CLAUSE_LIST --> CLAUSE_COMMENT{Open\nClause\nComments?}
+            CLAUSE_COMMENT -- Yes --> DISC_PANE
+            CLAUSE_COMMENT -- No --> COMMENTS_BOX
+
+            COMMENTS_BOX["Internal Comments Textarea\n(audit trail note)"]
+            COMMENTS_BOX --> DECISION_BTNS
+        end
+
+        subgraph TIMELINE_TAB["History Tab"]
+            HIST["Activity Timeline\n• User actions\n• Timestamps\n• Event types"]
+        end
+
+        subgraph DISC_PANE["💬 Discussion Pane (3rd column)"]
+            DISC_THREAD["Clause Discussion Thread\n• Nested comments\n• Reply to comments\n• Delete own comments"]
+            DISC_INPUT["Write comment / reply\n→ POST /api/contracts/:id/comments"]
+            DISC_THREAD --> DISC_INPUT
+        end
+    end
+
+    %% ── DECISION BUTTONS ──────────────────────────────────────
+    subgraph DECISION_BTNS["Decision Buttons"]
+        BTN_APPROVE["✅ Approve Contract"]
+        BTN_REQUEST["🔄 Request Changes"]
+        BTN_REJECT["❌ Reject / Change"]
+    end
+
+    %% ── REVIEW SUBMISSION ─────────────────────────────────────
+    BTN_APPROVE --> SUBMIT_API
+    BTN_REQUEST --> SUBMIT_API
+    BTN_REJECT --> SUBMIT_REJ_API
+    QUICK_APPROVE --> SUBMIT_API
+    QUICK_REJECT --> SUBMIT_REJ_API
+
+    SUBMIT_API["POST /api/contracts/:id/review\nbody: { department: 'Legal',\n        status: 'Approved' / 'Changes Requested',\n        comments: '...',\n        reviewer: 'Legal Counsel' }"]
+
+    SUBMIT_REJ_API["POST /api/contracts/:id/review\nbody: { department: 'Legal',\n        status: 'Rejected',\n        comments: '...' }"]
+
+    SUBMIT_API --> SAVE_COMMENT["POST /api/contracts/:id/save-review-comment\n{ department, comment, reviewedBy }"]
+    SAVE_COMMENT --> DECISION
+
+    %% ── POST-DECISION ROUTING ─────────────────────────────────
+    DECISION{Legal\nDecision?}
+
+    DECISION -- "Changes Requested" --> CHANGES["Contract stays at\n'Under Review'\nNo stage change"]
+    CHANGES --> QUEUE
+
+    DECISION -- "Approved" --> ADVANCE["stage → Finance Review\n🔔 Finance Dept Notified\n✅ Toast: 'Approved! Moved to Finance Review'"]
+    ADVANCE --> FIN_START([📤 Finance Review Begins])
+
+    SUBMIT_REJ_API --> REJECTED["stage → Rejected\nstatus → Rejected\n❌ Contract workflow ends"]
+
+    %% ── CLO OVERSIGHT (READ-ONLY VISIBILITY) ─────────────────
+    subgraph CLO["👔 Chief Legal Officer Oversight"]
+        CLO_DASH["CLO / Admin Dashboard\n(read-only monitoring)"]
+        CLO_AUDIT["Audit Logs\nGET /api/admin/audit-logs\n• All Legal Review actions\n• Reviewer name + timestamp"]
+        CLO_REPORTS["Reports Panel\n• Contracts by stage\n• Risk distribution\n• Approval rates"]
+        CLO_NOTIF["Escalation Alerts\n(if overdue contracts escalated)"]
+    end
+
+    %% ── STYLES ────────────────────────────────────────────────
+    classDef rejected fill:#ef4444,color:#fff,stroke:#b91c1c
+    classDef approved fill:#22c55e,color:#fff,stroke:#16a34a
+    classDef warning fill:#f59e0b,color:#fff,stroke:#d97706
+    classDef notify fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    classDef stage fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    classDef terminal fill:#0f172a,color:#94a3b8,stroke:#334155
+    classDef action fill:#0e7490,color:#fff,stroke:#0c4a6e
+    classDef neutral fill:#1e293b,color:#cbd5e1,stroke:#334155
+
+    class REJECTED rejected
+    class ADVANCE,FIN_START approved
+    class DUE_WARN warning
+    class NOTIFY,ESC_NOTIF,ESC_BTN notify
+    class SUBMIT_API,SUBMIT_REJ_API,ESC_API action
+    class START terminal
+    class QUEUE,CONTRACT_LIST,META,CLAUSE_LIST neutral
+    class DUE_OVER,DEADLINE rejected
+    class DUE_OK stage

@@ -7,17 +7,26 @@ from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime
 import pathlib
+from pathlib import Path, PureWindowsPath
 import shutil
 
 from database import db
-from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId
+from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId, WhitelistEntry, DigInkDocument
 import services
+import digink_service
 from openai import OpenAI
 import os
 
 UPLOAD_DIR = pathlib.Path("uploads")
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "5"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Allowed upload formats
+ALLOWED_EXTENSIONS = {'.pdf', '.docx'}
+ALLOWED_MIME_TYPES = {
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+}
 
 deepseek_client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY", ""),
@@ -40,6 +49,22 @@ def require_role(allowed_roles: List[str]):
         return user
     return role_checker
 
+async def check_domain_whitelist(email: str):
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email address for domain check")
+    
+    domain = email.split("@")[-1].lower()
+    whitelisted = await db.whitelist.find_one({"domain": domain, "isActive": True})
+    
+    if not whitelisted:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Access denied: Domain '{domain}' is not whitelisted or is inactive."
+        )
+    return True
+
+require_superadmin = require_role(["Superadmin"])
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,25 +74,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configuration from .env
+WHITELISTED_DOMAIN = os.getenv("WHITELISTED_DOMAIN", "apeiro.digital")
+ADMIN_NAME = os.getenv("ADMIN_NAME", "Aastha Pradhan")
+ADMIN_EMAIL = f"{os.getenv('ADMIN_PRE_EMAIL', 'Aastha.Pradhan')}@{WHITELISTED_DOMAIN}"
+USER_NAME = os.getenv("USER_NAME", "Rani Sahu")
+USER_EMAIL = f"{os.getenv('USER_PRE_EMAIL', 'Rani.Sahu')}@{WHITELISTED_DOMAIN}"
+SUPERADMIN_NAME = os.getenv("SUPERADMIN_NAME", "System Superadmin")
+SUPERADMIN_EMAIL = f"{os.getenv('SUPERADMIN_PRE_EMAIL', 'superadmin')}@{WHITELISTED_DOMAIN}"
+
 DEMO_USERS = [
-    {"name": "Admin User", "email": "admin@apeiro.com", "role": "Admin", "password": "Admin@2026", "status": "Active"},
-    {"name": "Legal Counsel", "email": "legal@apeiro.com", "role": "Legal", "password": "Legal@2026", "status": "Active"},
-    {"name": "Finance Controller", "email": "finance@apeiro.com", "role": "Finance", "password": "Finance@2026", "status": "Active"},
-    {"name": "Compliance Officer", "email": "compliance@apeiro.com", "role": "Compliance", "password": "Comply@2026", "status": "Active"},
-    {"name": "Procurement Lead", "email": "procurement@apeiro.com", "role": "Procurement", "password": "Procure@2026", "status": "Active"},
-    {"name": "Sales Manager", "email": "sales@apeiro.com", "role": "Sales", "password": "Sales@2026", "status": "Active"},
-    {"name": "Operations Manager", "email": "manager@apeiro.com", "role": "Manager", "password": "Manager@2026", "status": "Active"},
-    {"name": "Chief Executive Officer", "email": "ceo@apeiro.com", "role": "CEO", "password": "CEO@2026", "status": "Active"},
-    {"name": "Standard User", "email": "user@apeiro.com", "role": "User", "password": "User@2026", "status": "Active"},
-    {"name": "System Superadmin", "email": "superadmin@apeiro.com", "role": "Superadmin", "password": "Super@2026", "status": "Active"},
+    {"name": ADMIN_NAME, "email": ADMIN_EMAIL, "role": "Admin", "password": "Admin@2026", "status": "Active"},
+    {"name": "Legal Counsel", "email": f"legal@{WHITELISTED_DOMAIN}", "role": "Legal", "password": "Legal@2026", "status": "Active"},
+    {"name": "Finance Controller", "email": f"finance@{WHITELISTED_DOMAIN}", "role": "Finance", "password": "Finance@2026", "status": "Active"},
+    {"name": "Compliance Officer", "email": f"compliance@{WHITELISTED_DOMAIN}", "role": "Compliance", "password": "Comply@2026", "status": "Active"},
+    {"name": "Procurement Lead", "email": f"procurement@{WHITELISTED_DOMAIN}", "role": "Procurement", "password": "Procure@2026", "status": "Active"},
+    {"name": "Sales Manager", "email": f"sales@{WHITELISTED_DOMAIN}", "role": "Sales", "password": "Sales@2026", "status": "Active"},
+    {"name": "Operations Manager", "email": f"manager@{WHITELISTED_DOMAIN}", "role": "Manager", "password": "Manager@2026", "status": "Active"},
+    {"name": "Chief Executive Officer", "email": f"ceo@{WHITELISTED_DOMAIN}", "role": "CEO", "password": "CEO@2026", "status": "Active"},
+    {"name": USER_NAME, "email": USER_EMAIL, "role": "User", "password": "User@2026", "status": "Active"},
+    {"name": SUPERADMIN_NAME, "email": SUPERADMIN_EMAIL, "role": "Superadmin", "password": "Super@2026", "status": "Active"},
 ]
 
-async def log_action(action: str, user: str, role: str, details: str):
+async def log_action(action: str, user: str, role: str, details: str, contract_id: str = None):
     log = {
         "action": action,
-        "user": user,
+        "user_id": user, # Compliance with user request
+        "user": user,    # Compatibility with existing frontend
         "role": role,
         "details": details,
+        "contract_id": contract_id,
         "timestamp": datetime.utcnow().isoformat()
     }
     await db.logs.insert_one(log)
@@ -79,6 +115,16 @@ async def seed_users():
         exists = await db.users.find_one({"email": user["email"]})
         if not exists:
             await db.users.insert_one(user)
+    
+    # Seed whitelisted domains
+    for domain in [WHITELISTED_DOMAIN, "apeiro.digital"]:
+        domain_exists = await db.whitelist.find_one({"domain": domain})
+        if not domain_exists:
+            await db.whitelist.insert_one({
+                "domain": domain,
+                "isActive": True,
+                "createdAt": datetime.utcnow().isoformat()
+            })
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
@@ -171,6 +217,11 @@ async def upload_contracts(file: UploadFile = File(...)):
         await db.contracts.insert_one(contract.model_dump(by_alias=True, exclude_none=True))
         inserted_count += 1
         
+        # Log bulk upload creation
+        await log_action("Create Contract (Bulk)", "Admin", "Admin", 
+                         f"Contract '{title}' created via CSV upload", 
+                         str(contract.id) if hasattr(contract, 'id') else None)
+        
     return {"message": f"Successfully processed and created {inserted_count} contracts."}
 
 @app.get("/api/contracts")
@@ -193,25 +244,122 @@ async def get_contracts(stage: str = None, current_user: dict = Depends(get_curr
         
     return contracts
 
+@app.get("/api/user/dashboard")
+async def get_user_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email")
+    user_role = current_user.get("role")
+    if not user_email or not user_role:
+        raise HTTPException(status_code=400, detail="User context missing")
+        
+    # Total contracts submitted by this user
+    total = await db.contracts.count_documents({"submittedBy": user_email})
+    
+    # Active reviews for this user's role
+    reviews_query = {
+        "required_reviewers": user_role,
+        f"reviews.{user_role}.status": {"$ne": "Approved"},
+        "status": {"$nin": ["Approved", "Rejected"]}
+    }
+    # Admins see all pending reviews
+    if user_role in ["Admin", "Superadmin"]:
+        reviews_query = {"status": {"$nin": ["Approved", "Rejected"]}}
+        
+    pending_reviews = await db.contracts.count_documents(reviews_query)
+    
+    # Pending approvals for contracts submitted by this user (CAS/DOA stage)
+    pending_approvals = await db.contracts.count_documents({
+        "submittedBy": user_email,
+        "stage": {"$in": ["DOA Approval", "CAS", "CAS Generated"]}
+    })
+    
+    # Expiring soon (Mock logic: contracts expiring in next 30 days)
+    # Since dates are strings, this is a simplified count for demo purposes
+    now = datetime.utcnow()
+    # In a real app we'd use a more robust date comparison
+    expiring_soon = await db.contracts.count_documents({
+        "submittedBy": user_email,
+        "status": "Approved",
+        "expiry_date": {"$exists": True, "$ne": ""}
+    }) # Simplified check
+
+    return {
+        "totalContracts": total,
+        "pendingReviews": pending_reviews,
+        "pendingApprovals": pending_approvals,
+        "expiringSoon": expiring_soon
+    }
+
 @app.get("/api/user/contracts")
 async def get_my_contracts(current_user: dict = Depends(get_current_user)):
     user_email = current_user.get("email")
     if not user_email:
         raise HTTPException(status_code=400, detail="User email not found in token")
     
-    query = {"submittedBy": user_email}
-
-    cursor = db.contracts.find(query).sort("createdAt", -1)
-    contracts = await cursor.to_list(length=1000)
+    # Optimization: Sort by createdAt and only find user's contracts
+    cursor = db.contracts.find({"submittedBy": user_email}).sort("createdAt", -1)
+    contracts = await cursor.to_list(length=100)
     
     for c in contracts:
         c["id"] = str(c["_id"])
         del c["_id"]
-        
     return contracts
+
+@app.get("/api/user/reviews")
+async def get_user_reviews(current_user: dict = Depends(get_current_user)):
+    user_role = current_user.get("role")
+    if not user_role:
+        raise HTTPException(status_code=400, detail="User role not found in token")
+    
+    # Optimization: Filter by role and review status in MongoDB
+    query = {
+        "required_reviewers": user_role,
+        f"reviews.{user_role}.status": {"$ne": "Approved"},
+        "status": {"$nin": ["Approved", "Rejected"]}
+    }
+    
+    if user_role in ["Admin", "Superadmin"]:
+        query = {"status": {"$nin": ["Approved", "Rejected"]}}
+        
+    cursor = db.contracts.find(query).sort("createdAt", -1)
+    contracts = await cursor.to_list(length=100)
+    
+    for c in contracts:
+        c["id"] = str(c["_id"])
+        del c["_id"]
+    return contracts
+
+@app.get("/api/user/approvals")
+async def get_user_approvals(current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email")
+    user_role = current_user.get("role")
+    
+    # Only standard users or initiators typically track their own approvals here
+    # Optimization: Filter by submittedBy in MongoDB
+    query = {
+        "submittedBy": user_email,
+        "stage": {"$in": ["CAS", "CAS Generated", "DOA Approval"]}
+    }
+    
+    contracts = await db.contracts.find(query).sort("createdAt", -1).to_list(100)
+    
+    results = []
+    for c in contracts:
+        cas_record = await db.cas.find_one({"contractId": str(c["_id"])})
+        results.append({
+            "id": str(c["_id"]),
+            "title": c.get("title"),
+            "company": c.get("company"),
+            "value": c.get("value"),
+            "createdAt": c.get("createdAt"),
+            "submittedBy": c.get("submittedBy"),
+            "status": "Pending",
+            "casId": str(cas_record["_id"]) if cas_record else None
+        })
+    return results
 
 @app.post("/api/contracts/create")
 async def create_single_contract(data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    await check_domain_whitelist(current_user.get("email"))
     # Parse required reviewers based on clauses
     clauses = data.get("clauses", [])
     unique_depts = list({c.get("department", "Legal") for c in clauses if c.get("department")})
@@ -240,11 +388,25 @@ async def create_single_contract(data: dict = Body(...), current_user: dict = De
     result = await db.contracts.insert_one(
         contract.model_dump(by_alias=True, exclude_none=True)
     )
+    contract_id = str(result.inserted_id)
+    
+    # Notify each required department role
+    for dept in unique_depts:
+        await add_notification(
+            for_role=dept,
+            message=f"New contract '{contract.title}' for {contract.company} assigned for {dept} review.",
+            type="assignment",
+            contract_id=contract_id,
+            contract_title=contract.title,
+            action=f"Go to {dept} Review"
+        )
+
     await log_action("Create Contract", user_email, current_user.get("role", "User"),
-        f"Contract '{contract.title}' created for {contract.company} (${contract.value:,.0f}) with status {contract.status}")
+        f"Contract '{contract.title}' created for {contract.company} (${contract.value:,.0f}) with status {contract.status}",
+        contract_id)
     return {
         "message": "Contract created successfully",
-        "id": str(result.inserted_id)
+        "id": contract_id
     }
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -320,6 +482,12 @@ async def save_review_decision(contract_id: str, data: dict = Body(...)):
         {"_id": PyObjectId(contract_id)},
         {"$set": update_data}
     )
+    
+    # Log review decision
+    await log_action("Review Decision", data.get("reviewedBy", "Admin"), dept, 
+                     f"Department {dept} set status to {status}", 
+                     contract_id)
+                     
     return {"message": "Review decision saved successfully"}
 
 @app.post("/api/contracts/{contract_id}/escalate")
@@ -398,6 +566,8 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
     
     # Determine next stage
     next_stage = contract.get("stage")
+    overall_status = contract.get("status", "Under Review")
+
     if status == "Approved":
         if department == "Legal":
             next_stage = "Finance Review"
@@ -407,6 +577,15 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
             next_stage = "Procurement Review"
         elif department == "Procurement":
             next_stage = "CAS Generated"
+            overall_status = "Approved by Reviewers"
+            
+        # Persist the next stage and overall status
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {"stage": next_stage, "status": overall_status}}
+        )
+    elif status in ["Comment", "Change Request", "Suggest Changes"]:
+        pass # Do not change stage or stop workflow
     else:
         # If Rejected by any department, stop workflow
         await db.contracts.update_one(
@@ -415,13 +594,6 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
         )
         return {"message": f"Contract rejected by {department}"}
 
-    # Update contract with review and next stage
-    update_data["stage"] = next_stage
-    await db.contracts.update_one(
-        {"_id": ObjectId(contract_id)},
-        {"$set": update_data}
-    )
-    
     # ─── Notification insertion for next department ───
     notification_map = {
         "Legal": {
@@ -448,19 +620,27 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
 
     if status == "Approved" and department in notification_map:
         notif = notification_map[department]
-        await db.notifications.insert_one({
-            "for_role": notif["for_role"],
-            "message": notif["message"].format(title=contract.get("title", "")),
-            "contract_id": contract_id,
-            "contract_title": contract.get("title", ""),
-            "action": notif["action"],
-            "department": department,
-            "read": False,
-            "createdAt": datetime.utcnow().isoformat()
-        })
+        await add_notification(
+            for_role=notif["for_role"],
+            message=notif["message"].format(title=contract.get("title", "")),
+            contract_id=contract_id,
+            contract_title=contract.get("title", ""),
+            action=notif["action"],
+            type="approval"
+        )
 
     # Check if we moved to CAS Generated
     if next_stage == "CAS Generated":
+        updated_contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+        # Notify the initiator (User role)
+        await add_notification(
+            for_user=updated_contract.get("submittedBy"),
+            message=f"CAS has been generated for your contract '{updated_contract.get('title')}'. Please review and approve.",
+            type="cas_ready",
+            contract_id=contract_id,
+            contract_title=updated_contract.get("title"),
+            action="Go to Approvals"
+        )
         updated_contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
         cas_doc = services.generate_cas_document(
             contract_id=str(contract_id),
@@ -474,7 +654,45 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
     await log_action("Contract Review", reviewer, department,
         f"{department} {status.lower()} '{title}'. Comments: {comments[:80] if comments else 'None'}")
 
-    return {"message": "Review submitted successfully"}
+    return {"message": "Review submitted successfully", "next_stage": next_stage}
+
+@app.post("/api/contracts/{contract_id}/approve")
+async def approve_cas_contract(contract_id: str, action: str = Body(..., embed=True), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "User":
+        raise HTTPException(403, "Only Standard Users can perform CAS approvals")
+    
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(400, "Invalid contract ID")
+        
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(404, "Contract not found")
+        
+    if action == "approve":
+        # Move to DOA Approval or similar
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {"stage": "DOA Approval", "status": "Pending DOA"}}
+        )
+        # Update CAS record as well if it exists
+        await db.cas.update_one(
+            {"contractId": contract_id},
+            {"$set": {"status": "Approved by CAS Reviewer"}}
+        )
+        return {"message": "Contract approved at CAS stage"}
+    else:
+        # Reject
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {"stage": "Rejected", "status": "Rejected"}}
+        )
+        await db.cas.update_one(
+            {"contractId": contract_id},
+            {"$set": {"status": "Rejected"}}
+        )
+        return {"message": "Contract rejected at CAS stage"}
+
+    return {"message": "Contract rejected at CAS stage"}
 
 @app.post("/api/contracts/{contract_id}/generate-cas")
 async def manual_generate_cas(contract_id: str):
@@ -624,6 +842,11 @@ async def save_editor_content(contract_id: str, data: dict = Body(...)):
         )
         await db.documents.insert_one(new_doc.model_dump(by_alias=True, exclude_none=True))
         
+        # Log contract edit/save
+        await log_action("Edit Contract", data.get("user", "Admin"), "User", 
+                         f"Saved new version (v{version}) of contract via editor", 
+                         contract_id)
+        
         return {"message": f"Contract saved successfully (Version {version})", "version": version}
     except Exception as e:
         print(f"Error generating file: {e}")
@@ -655,7 +878,18 @@ async def approve_cas(cas_id: str, action: str = Body(...)):
         )
 
     await log_action("CAS Approval", "Admin", "Admin",
-        f"CAS for contract ID {cas.get('contractId', '?')} was {new_status.lower()}")
+        f"CAS for contract ID {cas.get('contractId', '?')} was {new_status.lower()}",
+        str(cas.get('contractId')))
+
+    if new_status == "Approved":
+        await add_notification(
+            for_user=cas.get("initiator"),
+            message=f"CAS for '{cas.get('contractTitle')}' has been approved. Contract is now ready for signature.",
+            type="signature_ready",
+            contract_id=cas.get("contractId"),
+            contract_title=cas.get("contractTitle"),
+            action="View Contract"
+        )
 
     return {"message": f"CAS {new_status}"}
 
@@ -689,6 +923,19 @@ async def approve_cas_step(cas_id: str, data: dict = Body(...)):
                 {"_id": ObjectId(cas.get("contractId"))},
                 {"$set": {"status": "Approved", "stage": "Approved"}}
             )
+            await add_notification(
+                for_user=cas.get("initiator"),
+                message=f"All CAS approval steps complete for '{cas.get('contractTitle')}'. Ready for signature.",
+                type="signature_ready",
+                contract_id=cas.get("contractId"),
+                contract_title=cas.get("contractTitle")
+            )
+            
+    # Log approval step
+    await log_action("CAS Approval Step", approved_by, "Approver", 
+                     f"Approved step {step_index} in CAS chain", 
+                     str(cas.get("contractId")))
+                     
     return {"message": "Step approved successfully"}
 
 @app.post("/api/contracts/doa/{contract_id}/{action}")
@@ -706,22 +953,100 @@ async def doa_approval(contract_id: str, action: str):
     )
     title = contract.get('title', 'Unknown Contract') if contract else 'Unknown Contract'
     await log_action("DOA Approval", "Admin", "CEO/Manager",
-        f"DOA {action.lower()}d: '{title}' is now {status}")
+        f"DOA {action.lower()}d: '{title}' is now {status}",
+        contract_id)
+        
+    if status == "Approved":
+        await add_notification(
+            for_user=contract.get("submittedBy"),
+            message=f"DOA Approval granted for '{title}'. Contract finalized.",
+            type="doa_approved",
+            contract_id=contract_id,
+            contract_title=title
+        )
     return {"message": f"Contract {action}d via DOA successfully"}
 
 # ─── Notification Endpoints ───
 
 @app.get("/api/notifications")
-async def get_notifications(role: Optional[str] = Query(None)):
+async def get_notifications(
+    role: Optional[str] = Query(None), 
+    current_user: dict = Depends(get_current_user)
+):
+    user_email = current_user.get("email")
+    
+    # Query for notifications that are:
+    # 1. Unread
+    # 2. Targeted at this user by email OR targeted at this user's role
     query = {"read": False}
+    
+    or_filters = []
     if role:
-        query["for_role"] = role
+        or_filters.append({"for_role": role})
+    if user_email:
+        or_filters.append({"for_user": user_email})
+        
+    if or_filters:
+        query["$or"] = or_filters
+        
     cursor = db.notifications.find(query).sort("createdAt", -1)
     notifs = await cursor.to_list(length=100)
+    
+    # Check for near-term expiries for the user and auto-generate alerts if needed
+    if user_email:
+        await check_and_notify_expiries(user_email)
+        # Re-fetch if we might have added new ones (simplification for demo)
+        cursor = db.notifications.find(query).sort("createdAt", -1)
+        notifs = await cursor.to_list(length=100)
+
     for n in notifs:
         n["id"] = str(n["_id"])
         del n["_id"]
     return notifs
+
+async def check_and_notify_expiries(user_email: str):
+    # Find active contracts owned/submitted by this user that expire within 30 days
+    # (Mock logic for demo: we'll look for contracts with expiry_date)
+    # real production would use a background task, but for this app this is a good trigger.
+    now = datetime.utcnow()
+    # In a real app we'd parse the date, for now we'll just check if field exists 
+    # and we haven't notified in the last 24h
+    contracts = await db.contracts.find({
+        "submittedBy": user_email,
+        "expiry_date": {"$exists": True, "$ne": None},
+        "status": "Approved"
+    }).to_list(100)
+    
+    for c in contracts:
+        # Check if we already notified for this contract recently
+        existing = await db.notifications.find_one({
+            "for_user": user_email,
+            "contract_id": str(c["_id"]),
+            "type": "expiry_alert"
+        })
+        if not existing:
+            await add_notification(
+                for_user=user_email,
+                message=f"Contract '{c.get('title')}' is approaching its expiry date.",
+                type="expiry_alert",
+                contract_id=str(c["_id"]),
+                contract_title=c.get("title")
+            )
+
+async def add_notification(for_role=None, for_user=None, message="", type="info", contract_id=None, contract_title=None, action=None):
+    notif = {
+        "message": message,
+        "type": type,
+        "read": False,
+        "createdAt": datetime.utcnow().isoformat()
+    }
+    if for_role: notif["for_role"] = for_role
+    if for_user: notif["for_user"] = for_user
+    if contract_id: notif["contract_id"] = contract_id
+    if contract_title: notif["contract_title"] = contract_title
+    if action: notif["action"] = action
+    
+    await db.notifications.insert_one(notif)
 
 @app.post("/api/notifications/{notif_id}/read")
 async def mark_notification_read(notif_id: str, role: Optional[str] = Query(None)):
@@ -741,6 +1066,53 @@ async def mark_notification_read(notif_id: str, role: Optional[str] = Query(None
         n["id"] = str(n["_id"])
         del n["_id"]
     return notifs
+
+# ─── Whitelist Endpoints (SuperAdmin only) ───
+
+@app.get("/api/whitelist")
+async def get_whitelist(current_user: dict = Depends(require_superadmin)):
+    cursor = db.whitelist.find({})
+    entries = await cursor.to_list(length=100)
+    for e in entries:
+        e["id"] = str(e["_id"])
+        del e["_id"]
+    return entries
+
+@app.post("/api/whitelist")
+async def add_whitelist_domain(entry: WhitelistEntry, current_user: dict = Depends(require_superadmin)):
+    domain = entry.domain.lower().strip()
+    existing = await db.whitelist.find_one({"domain": domain})
+    if existing:
+        raise HTTPException(status_code=400, detail="Domain already whitelisted")
+    
+    new_entry = {
+        "domain": domain,
+        "isActive": True,
+        "createdAt": datetime.utcnow().isoformat()
+    }
+    result = await db.whitelist.insert_one(new_entry)
+    new_entry["id"] = str(result.inserted_id)
+    del new_entry["_id"]
+    
+    await log_action("Add Whitelist Domain", current_user["email"], current_user.get("role", "Superadmin"), f"Added domain: {domain}")
+    return new_entry
+
+@app.put("/api/whitelist/{domain_id}")
+async def toggle_whitelist_domain(domain_id: str, data: dict = Body(...), current_user: dict = Depends(require_superadmin)):
+    if not ObjectId.is_valid(domain_id):
+        raise HTTPException(status_code=400, detail="Invalid domain ID")
+    
+    is_active = data.get("isActive", False)
+    result = await db.whitelist.update_one(
+        {"_id": ObjectId(domain_id)},
+        {"$set": {"isActive": is_active}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Domain not found")
+        
+    await log_action("Toggle Whitelist Domain", current_user["email"], current_user.get("role", "Superadmin"), f"Set domain {domain_id} isActive to {is_active}")
+    return {"message": "Domain updated successfully"}
 
 # ─── Admin Endpoints ───
 
@@ -847,9 +1219,57 @@ async def get_users_auth():
         del u["_id"]
     return users
 
+@app.post("/api/login")
+async def login(credentials: dict = Body(...)):
+    email = credentials.get("email")
+    password = credentials.get("password")
+    
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password required")
+    
+    # Check Domain Whitelist
+    await check_domain_whitelist(email)
+    
+    # Verify User
+    user = await db.users.find_one({"email": email, "password": password})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if user.get("status") != "Active":
+        raise HTTPException(status_code=403, detail="User account is inactive")
+        
+    user["id"] = str(user["_id"])
+    del user["_id"]
+    user.pop("password", None)
+    
+    await log_action("Login", email, user.get("role", "User"), "User logged in successfully")
+    return user
+
 @app.get("/api/admin/audit-logs")
 async def get_audit_logs(current_user: dict = Depends(require_role(["Admin", "Superadmin"]))):
     logs = await db.logs.find({}).sort("timestamp", -1).to_list(100)
+    for l in logs:
+        l["id"] = str(l["_id"])
+        del l["_id"]
+    return logs
+
+@app.delete("/api/admin/audit-logs/{log_id}")
+async def delete_audit_log(log_id: str, current_user: dict = Depends(require_role(["Admin", "Superadmin"]))):
+    if not ObjectId.is_valid(log_id):
+        raise HTTPException(status_code=400, detail="Invalid log ID")
+    result = await db.logs.delete_one({"_id": ObjectId(log_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Log not found")
+    return {"message": "Log deleted successfully"}
+
+@app.get("/api/user/audit-logs")
+async def get_user_audit_logs(current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email")
+    if not user_email:
+        raise HTTPException(status_code=400, detail="User email not found in token")
+        
+    query = {"$or": [{"user": user_email}, {"user_id": user_email}]}
+    logs = await db.logs.find(query).sort("timestamp", -1).to_list(200)
     for l in logs:
         l["id"] = str(l["_id"])
         del l["_id"]
@@ -861,7 +1281,7 @@ async def get_user_activity(current_user: dict = Depends(get_current_user)):
     if not user_email:
         raise HTTPException(status_code=400, detail="User email not found in token")
         
-    query = {"user": user_email}
+    query = {"$or": [{"user": user_email}, {"user_id": user_email}]}
     logs = await db.logs.find(query).sort("timestamp", -1).to_list(20)
     for l in logs:
         l["id"] = str(l["_id"])
@@ -1018,6 +1438,14 @@ async def upload_document(
     if not ObjectId.is_valid(contract_id):
         raise HTTPException(status_code=400, detail="Invalid contract ID")
 
+    # Validate file format
+    file_ext = pathlib.Path(file.filename or "").suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type '{file_ext}'. Only PDF and DOCX files are allowed."
+        )
+
     # Check file size
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
@@ -1119,8 +1547,20 @@ async def get_document_view_data(document_id: str):
         doc_obj = docx.Document(file_path)
         html_content = ""
         for para in doc_obj.paragraphs:
-            if para.text.strip():
-                html_content += f"<p>{para.text}</p>"
+            if not para.text.strip():
+                continue
+            
+            p_html = "<p>"
+            for run in para.runs:
+                text = run.text
+                if run.bold:
+                    text = f"<strong>{text}</strong>"
+                if run.italic:
+                    text = f"<em>{text}</em>"
+                p_html += text
+            p_html += "</p>"
+            html_content += p_html
+            
         return {"type": "docx", "content": html_content}
     
     else:
@@ -1220,10 +1660,12 @@ Keep it professional and concise."""
         }
 
 @app.post("/api/contracts/save-draft")
-async def save_draft(data: dict = Body(...)):
+async def save_draft(data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    await check_domain_whitelist(current_user.get("email"))
     try:
         await log_action("Save Draft", data.get("submittedBy", "Admin"), data.get("submittedBy", "Admin"),
-            f"Draft saved: '{data.get('title', 'Untitled')}' for {data.get('company', 'Unknown')}'")
+            f"Draft saved: '{data.get('title', 'Untitled')}' for {data.get('company', 'Unknown')}'",
+            str(result.inserted_id) if result else None)
         contract = Contract(
             title=data.get("title", "Draft Contract"),
             company=data.get("company", "Unknown"),
@@ -1258,7 +1700,24 @@ async def save_draft(data: dict = Body(...)):
 @app.post("/api/ai/extract-file")
 async def extract_file(file: UploadFile = File(...)):
     try:
+        # Validate file format
+        file_ext = pathlib.Path(file.filename or "").suffix.lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type '{file_ext}'. Only PDF and DOCX files are allowed."
+            )
+
         contents = await file.read()
+
+        # Validate file size
+        size_mb = len(contents) / (1024 * 1024)
+        if size_mb > MAX_FILE_SIZE_MB:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max {MAX_FILE_SIZE_MB}MB allowed."
+            )
+
         text = ""
         
         if file.filename.endswith('.pdf'):
@@ -1314,4 +1773,174 @@ async def extract_file(file: UploadFile = File(...)):
             "keyDates": "",
             "clauses": []
         }
+
+@app.post("/api/contracts/{contract_id}/send-for-signature")
+async def send_for_signature(contract_id: str, current_user: dict = Depends(get_current_user)):
+    print(f"DEBUG: Entering send_for_signature for contract_id: {contract_id}")
+    if not ObjectId.is_valid(contract_id):
+        print(f"DEBUG: Invalid contract_id: {contract_id}")
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+    
+    # 1. Fetch Contract
+    print(f"DEBUG: Fetching contract {contract_id} from DB...")
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        print(f"DEBUG: Contract {contract_id} not found in DB")
+        raise HTTPException(status_code=404, detail="Contract not found")
+        
+    # 2. Fetch Document
+    print(f"DEBUG: Fetching latest document for contract {contract_id}")
+    doc = await db.documents.find_one({"contractId": contract_id}, sort=[("uploadedAt", -1)])
+    if not doc:
+        print(f"DEBUG: No document found for contract {contract_id}")
+        raise HTTPException(status_code=404, detail="No document found for this contract")
+    
+    # 2.1 Robust Path Resolution
+    # storagePath is the field set by the upload endpoint
+    db_path = doc.get("storagePath") or doc.get("file_path", "")
+    print(f"DEBUG: DB Document storagePath: {db_path}")
+    
+    # Extract filename correctly regardless of it being a Windows or Linux path
+    filename = PureWindowsPath(db_path).name if db_path else doc.get("fileName", "")
+    print(f"DEBUG: Extracted filename: {filename}")
+    
+    # Search for the file in possible locations (only accept actual files, not directories)
+    candidate_paths = [
+        # 1. Exact stored path
+        db_path,
+        # 2. Inside contract-specific folder in uploads/ (Modern convention)
+        os.path.join("uploads", contract_id, filename) if filename else None,
+        # 3. Directly in uploads/
+        os.path.join("uploads", filename) if filename else None,
+        # 4. In uploaded_contracts/ (Legacy convention)
+        os.path.join("uploaded_contracts", filename) if filename else None,
+    ]
+    
+    file_path = None
+    for path in candidate_paths:
+        if path and os.path.isfile(path):  # isfile() rejects directories
+            file_path = path
+            print(f"DEBUG: Successfully resolved file to: {file_path}")
+            break
+    
+    if not file_path:
+        # Last resort: walk the contract upload dir and find any file
+        contract_upload_dir = os.path.join("uploads", contract_id)
+        if os.path.isdir(contract_upload_dir):
+            for f in os.listdir(contract_upload_dir):
+                candidate = os.path.join(contract_upload_dir, f)
+                if os.path.isfile(candidate):
+                    file_path = candidate
+                    print(f"DEBUG: Found file by directory scan: {file_path}")
+                    break
+    
+    if not file_path:
+        print(f"DEBUG: File not found. candidates tried: {[p for p in candidate_paths if p]}")
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+        
+    # 3. Prepare recipients
+    initiator_email = contract.get("submittedBy", ADMIN_EMAIL)
+    print(f"DEBUG: Initiator email: {initiator_email}, Admin email: {ADMIN_EMAIL}")
+    
+    # Simple whitelist check for initiator and sender
+    try:
+        await check_domain_whitelist(initiator_email)
+        await check_domain_whitelist(ADMIN_EMAIL)
+    except Exception as e:
+        print(f"DEBUG: Whitelist check failed: {str(e)}")
+        raise e
+
+    recipients = [
+        {"email": initiator_email, "name": "Initiator", "role": "signer"},
+        {"email": ADMIN_EMAIL, "name": contract.get("company", "Enterprise Services"), "role": "signer"}
+    ]
+    
+    try:
+        print(f"DEBUG: Calling digink_service.create_document...")
+        result = await digink_service.create_document(
+            sender_email=ADMIN_EMAIL,
+            title=contract.get("title", "Contract Signature Request"),
+            file_path=file_path,
+            recipients=recipients
+        )
+        
+        # Save DigInk tracking info
+        digink_id = result.get("document_id") or result.get("id")
+        print(f"DEBUG: DigInk success! ID: {digink_id}")
+        digink_doc = {
+            "contractId": contract_id,
+            "diginkDocumentId": digink_id,
+            "status": "Sent",
+            "createdAt": datetime.utcnow().isoformat(),
+            "updatedAt": datetime.utcnow().isoformat()
+        }
+        await db.digink_documents.insert_one(digink_doc)
+        
+        # Update contract stage
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {"stage": "Sent for Signature", "status": "Sent for Signature"}}
+        )
+        
+        await log_action("Send for Signature", current_user.get("email", "Admin"), current_user.get("role", "User"), 
+                         f"Contract '{contract.get('title')}' sent for signature via DigInk.", contract_id)
+        
+        print(f"DEBUG: Returning success for {contract_id}")
+        return {"message": "Document sent for signature successfully", "digink_id": digink_id}
+    except Exception as e:
+        error_msg = str(e)
+        print(f"DEBUG: DigInk Service Error: {error_msg}")
+        await log_action("Signature Failure", current_user.get("email", "Admin"), current_user.get("role", "User"), 
+                         f"Failed to send '{contract.get('title')}' for signature: {error_msg}", contract_id)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@app.post("/api/webhook/digink")
+async def digink_webhook(payload: dict = Body(...)):
+    doc_id = payload.get("document_id")
+    status = payload.get("status")
+    
+    if not doc_id or not status:
+        return {"status": "ignored"}
+        
+    digink_doc = await db.digink_documents.find_one({"diginkDocumentId": doc_id})
+    if not digink_doc:
+        return {"status": "not_found"}
+        
+    await db.digink_documents.update_one(
+        {"diginkDocumentId": doc_id},
+        {"$set": {"status": status, "updatedAt": datetime.utcnow().isoformat()}}
+    )
+    
+    if status == "signed":
+        await db.contracts.update_one(
+            {"_id": ObjectId(digink_doc["contractId"])},
+            {"$set": {"stage": "Signed", "status": "Approved"}}
+        )
+        
+        contract = await db.contracts.find_one({"_id": ObjectId(digink_doc["contractId"])})
+        if contract:
+            await add_notification(
+                for_user=contract.get("submittedBy"),
+                message=f"Contract '{contract.get('title')}' has been fully signed via DigInk!",
+                type="success",
+                contract_id=str(contract["_id"]),
+                contract_title=contract.get("title")
+            )
+            
+    return {"status": "success"}
+
+@app.get("/api/contracts/{contract_id}/digink-status")
+async def get_digink_status(contract_id: str):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(400, "Invalid contract ID")
+    
+    digink_doc = await db.digink_documents.find_one({"contractId": contract_id})
+    if not digink_doc:
+        return {"status": "Not Sent"}
+    
+    return {
+        "status": digink_doc.get("status"),
+        "diginkDocumentId": digink_doc.get("diginkDocumentId"),
+        "updatedAt": digink_doc.get("updatedAt")
+    }
 
