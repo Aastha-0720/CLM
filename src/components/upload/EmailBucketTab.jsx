@@ -22,24 +22,46 @@ const EmailBucketTab = ({ onDataChange }) => {
         setIsProcessing(true);
         setError('');
         setExtractedData(null);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         try {
             let emailText = rawContent;
             if (file) emailText = await file.text();
+            const token = localStorage.getItem('token') || 'mock-token-admin';
             const response = await fetch('/api/ai/extract-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                signal: controller.signal,
                 body: JSON.stringify({ email_text: emailText })
             });
+            clearTimeout(timeoutId);
+
             if (!response.ok) throw new Error('Extraction failed');
             const data = await response.json();
-            if (!data.counterpartyName && !data.contractValue) {
+            // Robust check: at least one meaningful field should exist
+            const hasData = (data.counterpartyName && data.counterpartyName.trim() !== "") || 
+                           (data.contractValue && data.contractValue !== "") ||
+                           (data.subject && data.subject !== "");
+            
+            if (!hasData) {
                 setError('AI could not extract data. Please paste email content manually.');
                 return;
             }
             setExtractedData(data);
             if (onDataChange) onDataChange(data);
         } catch (err) {
-            setError('Failed to process email. Please try again.');
+            clearTimeout(timeoutId);
+            console.error('Email process error:', err);
+            if (err.name === 'AbortError') {
+                setError('AI extraction taking too long. You can enter details manually or try again.');
+            } else {
+                setError('Failed to process email. Please try again.');
+            }
         } finally {
             setIsProcessing(false);
         }

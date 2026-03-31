@@ -647,3 +647,95 @@
     background: rgba(0, 201, 177, 0.1);
     transform: translateX(4px);
 }
+/* Workflow Steps */
+.workflowSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.stepItem {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    position: relative;
+    padding-bottom: 24px;
+}
+
+.stepMarker {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--bg-sidebar);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+
+.stepConnector {
+    position: absolute;
+    left: 11px;
+    top: 24px;
+    bottom: 0px;
+    width: 2px;
+    background-color: var(--border-color);
+    z-index: 1;
+}
+
+.stepInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stepRole {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.stepStatus {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* Step States */
+.stepCurrent .stepMarker {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.stepCurrent .stepRole {
+    color: var(--text-primary);
+}
+
+.stepCurrent .stepStatus {
+    color: var(--accent-orange);
+}
+
+.stepDone .stepMarker {
+    background-color: var(--accent-teal);
+    border-color: var(--accent-teal);
+    color: var(--bg-dark);
+}
+
+.stepDone .stepRole {
+    color: var(--text-primary);
+}
+
+.stepDone .stepStatus {
+    color: var(--accent-teal);
+}
+
+.stepDone .stepConnector {
+    background-color: var(--accent-teal);
+}

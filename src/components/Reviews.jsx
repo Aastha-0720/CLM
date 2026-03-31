@@ -24,10 +24,9 @@ const Reviews = ({ user }) => {
 
                 if (data && Array.isArray(data)) {
                     data.forEach(c => {
-                        if (c.stage === 'Under Review') newCounts.Legal++;
-                        if (c.stage === 'Finance Review') newCounts.Finance++;
-                        if (c.stage === 'Compliance Review') newCounts.Compliance++;
-                        if (c.stage === 'Procurement Review') newCounts.Procurement++;
+                        if (['Under Review', 'Pending', 'Overdue'].includes(c.status) && c.department && newCounts[c.department] != null) {
+                            newCounts[c.department]++;
+                        }
                     });
                 }
                 setCounts(newCounts);

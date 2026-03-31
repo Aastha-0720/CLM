@@ -48,7 +48,8 @@ const Login = ({ onLogin }) => {
         const user = users.find(u => u.email === email && u.password === password);
 
         if (user) {
-            onLogin(user);
+            const token = btoa(`${user.email}:${Date.now()}`);
+            onLogin({ ...user, token });
         } else {
             setError('Invalid email or password. Please try again.');
         }

@@ -6,7 +6,7 @@ import EmailBucketTab from './upload/EmailBucketTab';
 import FileUploadTab from './upload/FileUploadTab';
 import CreateContractTab from './upload/CreateContractTab';
 
-const UploadContract = () => {
+const UploadContract = ({ onNavigate, onRefresh }) => {
     const [activeTab, setActiveTab] = useState('csv');
     const [contractData, setContractData] = useState({});
 
@@ -37,7 +37,11 @@ const UploadContract = () => {
             id: 'create',
             label: 'Create Contract',
             icon: '✍️',
-            content: <CreateContractTab onDataChange={handleDataChange} />
+            content: <CreateContractTab 
+                onDataChange={handleDataChange} 
+                onNavigate={onNavigate} 
+                onRefresh={onRefresh}
+            />
         }
     ];
 
@@ -58,7 +62,6 @@ const UploadContract = () => {
                     }}
                 />
             </div>
-
         </div>
     );
 };

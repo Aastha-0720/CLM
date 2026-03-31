@@ -396,6 +396,70 @@
     color: #10B981;
 }
 
+.statusDraft {
+    background-color: rgba(156, 163, 175, 0.1);
+    color: #9CA3AF;
+}
+
+.filterTabs {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.filterTab {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+}
+
+.filterTabActive {
+    background: var(--accent-teal);
+    color: var(--bg-dark);
+    border-color: var(--accent-teal);
+}
+
+.sortControl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sortLabel {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sortSelect {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 160px;
+    outline: none;
+    cursor: pointer;
+}
+
+.sortSelect option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
 /* Actions Table */
 .tableCard {
     background-color: var(--bg-card);
@@ -640,6 +704,53 @@
     border-color: var(--accent-teal);
 }
 
+.recentContractsTable {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.recentContractsTable thead tr {
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.recentContractsTable th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.recentContractsTable td {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    transition: background-color 0.2s ease;
+}
+
+.recentContractsTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.recentContractsTableAltRow td {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.recentContractsPrimaryCell {
+    font-weight: 500;
+    color: var(--text-primary) !important;
+}
+
+.recentContractsValueCell {
+    color: var(--text-primary) !important;
+}
+
 /* Modal Overlay & Content */
 .modalOverlay {
     position: fixed;
@@ -825,6 +936,8 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .countBadge {
@@ -842,6 +955,18 @@
     transition: transform 0.3s ease;
 }
 
+@media (max-width: 900px) {
+    .sortControl {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .sortSelect {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
 .collapsibleContent {
     max-height: 0;
     overflow: hidden;
@@ -855,4 +980,240 @@
 .collapsibleBody {
     padding: 0 24px 24px 24px;
     animation: fadeIn 0.4s ease;
+}
+/* Sales Workspace Hero Section */
+.salesHero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-radius: 24px;
+    padding: 60px;
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    min-height: 400px;
+}
+
+.salesHeroContent {
+    flex: 1;
+    max-width: 600px;
+    z-index: 2;
+}
+
+.salesBadge {
+    display: inline-block;
+    padding: 6px 12px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 24px;
+}
+
+.salesTitle {
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.salesSubtitle {
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+    line-height: 1.6;
+}
+
+.salesActionRow {
+    display: flex;
+    gap: 20px;
+}
+
+.salesPrimaryBtn, .salesSecondaryBtn {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: left;
+    border: 1px solid transparent;
+}
+
+.salesPrimaryBtn {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.2);
+}
+
+.salesPrimaryBtn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 30px rgba(59, 130, 246, 0.3);
+    background: #2563EB;
+}
+
+.salesSecondaryBtn {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.salesSecondaryBtn:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btnIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btnText {
+    display: flex;
+    flex-direction: column;
+}
+
+.btnLabel {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.btnDesc {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.heroVisual {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 100%;
+}
+
+.visualCircle {
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(45deg, #3B82F6, #10B981);
+    filter: blur(80px);
+    opacity: 0.2;
+    border-radius: 50%;
+}
+
+.visualGlass {
+    position: absolute;
+    width: 240px;
+    height: 320px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transform: perspective(1000px) rotateY(-15deg) rotateX(10deg);
+    box-shadow: 20px 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.glassLine {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    width: 100%;
+}
+
+/* All Contracts Page Styles */
+.contractsPage {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.pageHeader h2 {
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.cardFilterGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.filterCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.filterCard:hover {
+    transform: translateY(-5px);
+    border-color: var(--card-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.filterCardActive {
+    border-color: var(--card-color);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.cardData {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cardCount {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.cardLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.cardIndicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    transition: all 0.3s ease;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.emptyIcon {
+    font-size: 64px;
+    margin-bottom: 24px;
+    opacity: 0.5;
 }

@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+
+const CLAUSE_DEPT_MAP = {
+    Legal: ['liability', 'indemnity', 'termination', 'dispute', 'intellectual', 'governing law'],
+    Finance: ['payment', 'invoice', 'penalty', 'price', 'cost', 'fee', 'financial'],
+    Compliance: ['gdpr', 'regulatory', 'compliance', 'data protection', 'audit', 'privacy'],
+    Procurement: ['vendor', 'supplier', 'delivery', 'sla', 'procurement', 'purchase']
+};
+
 import styles from './ReviewPage.module.css';
 import { contractService } from '../services/contractService';
 
@@ -9,6 +17,12 @@ const ComplianceReview = ({ user }) => {
     const [comment, setComment] = useState('');
     const [editText, setEditText] = useState('');
     const [toast, setToast] = useState(null);
+    const [redlineModal, setRedlineModal] = useState(null);
+    const [redlineLoading, setRedlineLoading] = useState(false);
+    const [changeRequests, setChangeRequests] = useState([]);
+    const [crForm, setCrForm] = useState({ description: '', clauseId: '' });
+    const [crLoading, setCrLoading] = useState(false);
+
     const [reviewMode, setReviewMode] = useState('sequential'); // 'sequential' or 'parallel'
 
     const [escalateModal, setEscalateModal] = useState(null);
@@ -42,9 +56,13 @@ const ComplianceReview = ({ user }) => {
         setLoading(true);
         try {
             const data = await contractService.getAllContracts();
-            const filtered = data.filter(c => 
-                (c.stage === 'Compliance Review') ||
-                (c.stage === 'Under Review' && (c.review_mode === 'parallel' || reviewMode === 'parallel'))
+            const filtered = data.filter(c =>
+                ['Under Review', 'Pending', 'Overdue'].includes(c.status) &&
+                (
+                    c.department === 'Compliance' ||
+                    (c.review_mode === 'parallel' && (c.review_stages || c.required_reviewers || []).includes('Compliance'))
+                ) &&
+                c?.reviews?.Compliance?.status !== 'Approved'
             );
             setContracts(filtered || []);
         } catch (e) {
@@ -60,8 +78,12 @@ const ComplianceReview = ({ user }) => {
 
     const isPrevApproved = (contract) => {
         if (!contract) return false;
-        if (contract.review_mode === 'parallel' || reviewMode === 'parallel') return true;
-        return contract?.reviews?.Finance?.status === 'Approved';
+        if (contract.review_mode === 'parallel') return true;
+        const stages = contract.review_stages || contract.required_reviewers || ['Legal', 'Finance', 'Compliance', 'Procurement'];
+        const myIndex = stages.indexOf('Compliance');
+        if (myIndex <= 0) return true;
+        const prevDept = stages[myIndex - 1];
+        return contract?.reviews?.[prevDept]?.status === 'Approved';
     };
 
     const handleEscalate = async () => {
@@ -111,42 +133,142 @@ const ComplianceReview = ({ user }) => {
                 body: JSON.stringify({
                     department: 'Compliance',
                     comment: finalComment,
+                    status,
                     reviewedBy: 'Compliance Team'
                 })
             });
 
             if (status === 'Approved') {
-                setToast('✅ Approved! Moved to Procurement Review');
+                setToast('✅ Approved and moved to the next stage');
+                setTimeout(() => setToast(null), 3000);
+            } else if (status === 'Rejected') {
+                setToast('Contract rejected and moved to the rejected list');
                 setTimeout(() => setToast(null), 3000);
             }
 
-            await loadData();
+            setContracts(prev => prev.filter(c => c.id !== id));
             setSelectedContract(null);
             setComment('');
         } catch (e) {
-            alert('Action failed');
+            console.error('Compliance review action failed', e);
+            alert(e?.message || 'Action failed');
         }
     };
 
-    const openReview = (contract) => {
-        if (!isPrevApproved(contract)) {
-            setGateModal("Finance department has not yet approved this contract. You can add comments and review clauses, but cannot approve or reject until Finance completes their review.");
-            return;
+    
+    const wordDiff = (original, revised) => {
+        const origWords = (original || '').split(' ');
+        const revWords = (revised || '').split(' ');
+        const result = [];
+        let i = 0, j = 0;
+        while (i < origWords.length || j < revWords.length) {
+            if (i < origWords.length && j < revWords.length && origWords[i] === revWords[j]) {
+                result.push({ type: 'same', word: origWords[i] });
+                i++; j++;
+            } else if (j < revWords.length && (i >= origWords.length || !origWords.includes(revWords[j]))) {
+                result.push({ type: 'added', word: revWords[j] });
+                j++;
+            } else {
+                result.push({ type: 'removed', word: origWords[i] });
+                i++;
+            }
         }
+        return result;
+    };
+
+    const handleRedline = async (clause) => {
+        setRedlineLoading(true);
+        try {
+            const result = await contractService.redlineClause({
+                clause: clause.content,
+                section: clause.title,
+                issue: 'Review for risk',
+                company: 'Our Company',
+                role: 'Buyer',
+                risk_tolerance: selectedContract.risk_classification || 'Medium',
+                industry: 'General'
+            });
+            setRedlineModal({ clause, result });
+        } catch (e) {
+            alert('Redline failed. Please try again.');
+        } finally {
+            setRedlineLoading(false);
+        }
+    };
+
+    const handleAcceptRedline = () => {
+        if (!redlineModal) return;
+        setClauses(prev => prev.map(c =>
+            c.id === redlineModal.clause.id
+                ? { ...c, content: redlineModal.result.redlinedClause, status: 'Reviewed' }
+                : c
+        ));
+        setRedlineModal(null);
+    };
+
+    const handleSaveRedlineToContract = async () => {
+        handleAcceptRedline();
+        const updatedClauses = clauses.map(c =>
+            c.id === redlineModal?.clause.id
+                ? { ...c, content: redlineModal.result.redlinedClause }
+                : c
+        );
+        try {
+            await contractService.updateContract(selectedContract.id, { clauses: updatedClauses });
+            setToast('Redline saved to contract');
+            setTimeout(() => setToast(null), 3000);
+        } catch (e) {
+            alert('Failed to save to contract');
+        }
+    };
+
+    const handleCreateCR = async () => {
+        if (!crForm.description.trim()) return;
+        setCrLoading(true);
+        try {
+            const newCR = await contractService.createChangeRequest(selectedContract.id, {
+                department: 'Compliance',
+                requestedBy: user?.name || 'Admin',
+                clauseId: crForm.clauseId || null,
+                description: crForm.description
+            });
+            setChangeRequests(prev => [...prev, newCR]);
+            setCrForm({ description: '', clauseId: '' });
+        } catch (e) {
+            alert('Failed to create change request');
+        } finally {
+            setCrLoading(false);
+        }
+    };
+
+    const handleUpdateCR = async (crId, status) => {
+        const resolution = status === 'Resolved' ? 'Resolved by reviewer' : 'Rejected by reviewer';
+        try {
+            const updated = await contractService.updateChangeRequest(crId, { status, resolution });
+            setChangeRequests(prev => prev.map(cr => cr._id === crId || cr.id === crId ? updated : cr));
+        } catch (e) {
+            alert('Failed to update change request');
+        }
+    };
+const openReview = async (contract) => {
         setSelectedContract(contract);
-        setEditText(contract.extractedText || 'Contract text not available for editing in this mock.');
+        setEditText(contract.extractedText || 'Full contract text not available.');
         
-        // Load real clauses filtered by department
+        // Load real clauses filtered using dynamic map logic
         const contractClauses = contract.clauses || [];
-        const deptClauses = contractClauses.filter(c => c.department === 'Compliance');
+        const deptClauses = contractClauses.filter(c => {
+            const text = ((c.title || '') + ' ' + (c.content || '')).toLowerCase();
+            return CLAUSE_DEPT_MAP['Compliance'].some(kw => text.includes(kw));
+        });
         
         if (deptClauses.length > 0) {
-            setClauses(deptClauses.map(c => ({ 
-                id: c.id || Math.random().toString(), 
-                title: c.type || 'Clause', 
-                content: c.text, 
+            const combinedContent = deptClauses.map(c => `[${c.type || 'Clause'}] ${c.text}`).join('\n\n');
+            setClauses([{ 
+                id: 'compliance-combined', 
+                title: 'Compliance Provisions Summary', 
+                content: combinedContent, 
                 status: 'Pending' 
-            })));
+            }]);
         } else {
             setClauses([]);
         }
@@ -154,6 +276,8 @@ const ComplianceReview = ({ user }) => {
         setActiveClauseComments(null);
         setComments([]);
         loadComments(contract.id);
+        const crs = await contractService.fetchChangeRequests(contract.id);
+        setChangeRequests(crs || []);
     };
 
     const loadComments = async (contractId) => {
@@ -240,12 +364,11 @@ const ComplianceReview = ({ user }) => {
     });
 
     const WorkflowProgress = ({ contract }) => {
-        const steps = [
-            { name: 'Legal', approved: contract?.reviews?.Legal?.status === 'Approved' },
-            { name: 'Finance', approved: contract?.reviews?.Finance?.status === 'Approved' },
-            { name: 'Compliance', approved: contract?.reviews?.Compliance?.status === 'Approved' },
-            { name: 'Procurement', approved: contract?.reviews?.Procurement?.status === 'Approved' },
-        ];
+        const reviewStages = contract?.review_stages || contract?.required_reviewers || ['Legal', 'Finance', 'Compliance', 'Procurement'];
+        const steps = reviewStages.map(dept => ({
+            name: dept,
+            approved: contract?.reviews?.[dept]?.status === 'Approved'
+        }));
         const currentIdx = steps.findIndex(s => !s.approved);
         return (
             <div className={styles.workflowBar}>
@@ -290,18 +413,7 @@ const ComplianceReview = ({ user }) => {
                             </div>
                         </div>
 
-                        <div className={styles.filterGroup}>
-                            <label className={styles.filterLabel}>Review Mode</label>
-                            <select
-                                className={styles.filterSelect}
-                                value={reviewMode}
-                                onChange={(e) => setReviewMode(e.target.value)}
-                                style={{ fontWeight: '600', color: reviewMode === 'parallel' ? '#8b5cf6' : '#00C9B1' }}
-                            >
-                                <option value="sequential">Sequential Workflow</option>
-                                <option value="parallel">Parallel Workflow</option>
-                            </select>
-                        </div>
+                        
 
                         <div className={styles.filterGroup}>
                             <label className={styles.filterLabel}>Status</label>
@@ -435,7 +547,7 @@ const ComplianceReview = ({ user }) => {
 
             {contracts.length === 0 && !loading && (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-                    All reviews are cleared. Great job!
+                    All reviews completed. The queue is empty.
                 </div>
             )}
 
@@ -474,6 +586,12 @@ const ComplianceReview = ({ user }) => {
                                         >
                                             History
                                         </button>
+                                        <button
+                                            className={`${styles.tabBtn} ${activeRightTab === 'ChangeRequests' ? styles.activeTab : ''}`}
+                                            onClick={() => setActiveRightTab('ChangeRequests')}
+                                        >
+                                            Change Requests
+                                        </button>
                                     </div>
                                 </div>
                                 <button className={styles.closeModalBtn} onClick={() => setSelectedContract(null)}>×</button>
@@ -482,14 +600,64 @@ const ComplianceReview = ({ user }) => {
                             <div className={styles.reviewPaneContent}>
                                 {activeRightTab === 'Review' ? (
                                     <>
-                                        <div className={styles.metadataGrid} style={{ borderLeft: '3px solid #00C9B1', paddingLeft: '12px' }}>
+                                        
+        <div className={styles.metadataGrid} style={{ borderLeft: '3px solid #00C9B1', paddingLeft: '12px' }}>
                                             <div className={styles.metaItem}>
                                                 <span className={styles.metaLabel}>Contract Title</span>
                                                 <span className={styles.metaValue}>{selectedContract.title}</span>
                                             </div>
+<div style={{ marginBottom: '16px', marginTop: '16px', padding: '12px', background: 'var(--color-background-secondary)', borderRadius: '8px', border: '0.5px solid var(--color-border-tertiary)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div style={{ fontSize: '12px', fontWeight: '500', color: 'var(--color-text-secondary)' }}>Review assignment</div>
+        {selectedContract && (
+            <span style={{
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '500',
+                background: selectedContract.review_mode === 'parallel' ? '#EEEDFE' : '#E1F5EE',
+                color: selectedContract.review_mode === 'parallel' ? '#534AB7' : '#0F6E56'
+            }}>
+                {selectedContract.review_mode === 'parallel' ? 'Parallel Review' : 'Sequential Review'}
+            </span>
+        )}
+    </div>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+        {(selectedContract.review_stages || ['Legal','Finance','Compliance','Procurement']).map(dept => (
+            <span key={dept} style={{
+                padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '500',
+                background: 'var(--color-background-info)', color: 'var(--color-text-info)'
+            }}>{dept}</span>
+        ))}
+    </div>
+    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+        {(selectedContract.clauses || [])
+            .filter(cl => {
+                const text = (cl.title + ' ' + cl.content).toLowerCase();
+                return CLAUSE_DEPT_MAP['Compliance'].some(kw => text.includes(kw));
+            })
+            .map(cl => (
+                <div key={cl.id} style={{ marginTop: '4px' }}>
+                    • <strong>{cl.title}</strong> triggered this review
+                </div>
+            ))
+        }
+        {(selectedContract.clauses || []).filter(cl => {
+            const text = (cl.title + ' ' + cl.content).toLowerCase();
+            return CLAUSE_DEPT_MAP['Compliance'].some(kw => text.includes(kw));
+        }).length === 0 && (
+            <div style={{ color: 'var(--color-text-tertiary)' }}>All-department review (no specific clause match)</div>
+        )}
+    </div>
+</div>
+
                                             <div className={styles.metaItem}>
                                                 <span className={styles.metaLabel}>Counterparty</span>
                                                 <span className={styles.metaValue}>{selectedContract.company}</span>
+                                            </div>
+                                            <div className={styles.metaItem}>
+                                                <span className={styles.metaLabel}>Department</span>
+                                                <span className={styles.metaValue}>{selectedContract.review_stages?.[0] || selectedContract.department}</span>
                                             </div>
                                             <div className={styles.metaItem}>
                                                 <span className={styles.metaLabel}>Value</span>
@@ -511,11 +679,22 @@ const ComplianceReview = ({ user }) => {
                                                     {new Date((new Date(selectedContract.createdAt || Date.now()).getTime()) + (5 * 24 * 60 * 60 * 1000)).toLocaleDateString()}
                                                 </span>
                                             </div>
-                                            <div className={styles.metaItem} style={{ gridColumn: 'span 2' }}>
-                                                <span className={styles.metaLabel}>Current Status</span>
-                                                <span className={styles.metaValue} style={{ color: 'var(--accent-teal)' }}>{selectedContract.status || selectedContract.stage}</span>
-                                            </div>
+                                        <div className={styles.metaItem} style={{ gridColumn: 'span 2' }}>
+                                            <span className={styles.metaLabel}>Current Status</span>
+                                            <span className={styles.metaValue} style={{ color: 'var(--accent-teal)' }}>{selectedContract.status || selectedContract.stage}</span>
                                         </div>
+                                    </div>
+
+                                        {(selectedContract.internalNotes || selectedContract.routingNotes) && (
+                                            <div style={{ marginTop: '12px', marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0, 201, 177, 0.08)', border: '1px solid rgba(0, 201, 177, 0.18)' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#00C9B1', marginBottom: '6px' }}>
+                                                    Additional Notes
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                                                    {selectedContract.internalNotes || selectedContract.routingNotes}
+                                                </div>
+                                            </div>
+                                        )}
                                         
                                         <div style={{ fontSize: '12px', color: '#00C9B1', marginTop: '12px', marginBottom: '16px', fontWeight: 600 }}>
                                             {clauses.filter(c => c.status === 'Reviewed').length} of {clauses.length} clauses reviewed
@@ -547,7 +726,7 @@ const ComplianceReview = ({ user }) => {
                                                                 </div>
                                                             </div>
 
-                                                            <div className={styles.clauseBody}>
+                                                            <div className={styles.clauseBody} style={{ whiteSpace: 'pre-wrap' }}>
                                                                 {clause.content}
                                                             </div>
 
@@ -596,25 +775,96 @@ const ComplianceReview = ({ user }) => {
                                             <button style={{ width: '100%', marginTop: '8px' }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(selectedContract.id, 'Reject')}>Reject / Change</button>
                                         </div>
                                     </>
-                                ) : (
+                                ) : activeRightTab === 'Timeline' ? (
                                     <div className={styles.timelineContainer}>
                                         <h4 className={styles.sectionLabel}>Activity Timeline</h4>
                                         <div className={styles.timelineList}>
-                                            {timeline.map((event, idx) => (
-                                                <div key={event.id} className={styles.timelineItem}>
-                                                    <div className={`${styles.timelineDot} ${styles['dot' + event.type]}`}></div>
-                                                    {idx !== timeline.length - 1 && <div className={styles.timelineLine}></div>}
-                                                    <div className={styles.timelineContent}>
-                                                        <div className={styles.timelineEvent}>
-                                                            <strong>{event.user}</strong> {event.action}
-                                                        </div>
-                                                        <div className={styles.timelineTime}>
-                                                            {new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                            {timeline.map((event, idx) => {
+                                                let dotType = 'review';
+                                                if (event.eventType === 'CREATED' || event.action?.includes('created') || event.action?.includes('saved')) dotType = 'create';
+                                                if (event.eventType === 'UPDATED' || event.action?.includes('updated')) dotType = 'edit';
+                                                
+                                                return (
+                                                    <div key={event.id || idx} className={styles.timelineItem}>
+                                                        <div className={`${styles.timelineDot} ${styles['dot' + dotType]}`}></div>
+                                                        {idx !== timeline.length - 1 && <div className={styles.timelineLine}></div>}
+                                                        <div className={styles.timelineContent}>
+                                                            <div className={styles.timelineEvent}>
+                                                                <strong>{event.actor || event.userName || 'System'}</strong> {event.message || event.action}
+                                                            </div>
+                                                            {(event.details || event.notes || (event.metadata && Array.isArray(event.metadata.steps) && event.metadata.steps.length > 0)) && (
+                                                                <div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.5 }}>
+                                                                    {event.details}
+                                                                    {event.metadata && Array.isArray(event.metadata.steps) && event.metadata.steps.length > 0 && (
+                                                                        <div style={{ marginTop: event.details ? '6px' : 0 }}>
+                                                                            <strong>Steps:</strong> {event.metadata.steps.join(', ')}
+                                                                        </div>
+                                                                    )}
+                                                                    {event.notes && (
+                                                                        <div style={{ marginTop: event.details ? '6px' : 0 }}>
+                                                                            <strong>Notes:</strong> {event.notes}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            <div className={styles.timelineTime}>
+                                                                {new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div style={{ marginBottom: '14px' }}>
+                                            <textarea
+                                                placeholder="Describe the change needed..."
+                                                value={crForm.description}
+                                                onChange={e => setCrForm(prev => ({ ...prev, description: e.target.value }))}
+                                                rows={3}
+                                                style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '0.5px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }}
+                                            />
+                                            <select
+                                                value={crForm.clauseId}
+                                                onChange={e => setCrForm(prev => ({ ...prev, clauseId: e.target.value }))}
+                                                style={{ width: '100%', marginTop: '6px', padding: '7px', borderRadius: '8px', border: '0.5px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontSize: '13px' }}>
+                                                <option value="">No specific clause</option>
+                                                {clauses.map(cl => <option key={cl.id} value={cl.id}>{cl.title}</option>)}
+                                            </select>
+                                            <button
+                                                onClick={handleCreateCR}
+                                                disabled={crLoading || !crForm.description.trim()}
+                                                style={{ marginTop: '8px', width: '100%', padding: '8px', borderRadius: '8px', background: 'var(--accent-teal)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }}>
+                                                {crLoading ? 'Submitting...' : 'Raise change request'}
+                                            </button>
+                                        </div>
+
+                                        {changeRequests.length === 0 ? (
+                                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No change requests yet</div>
+                                        ) : (
+                                            changeRequests.map(cr => (
+                                                <div key={cr._id || cr.id} style={{ padding: '10px', marginBottom: '8px', borderRadius: '8px', border: '0.5px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>{cr.department}</span>
+                                                        <span style={{
+                                                            fontSize: '11px', padding: '2px 8px', borderRadius: '12px', fontWeight: '500',
+                                                            background: cr.status === 'Open' ? '#FAEEDA' : cr.status === 'Resolved' ? '#EAF3DE' : '#FCEBEB',
+                                                            color: cr.status === 'Open' ? '#854F0B' : cr.status === 'Resolved' ? '#3B6D11' : '#A32D2D'
+                                                        }}>{cr.status}</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '6px' }}>{cr.description}</div>
+                                                    {cr.resolution && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Resolution: {cr.resolution}</div>}
+                                                    {cr.status === 'Open' && cr.department === 'Compliance' && (
+                                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                                            <button onClick={() => handleUpdateCR(cr._id || cr.id, 'Resolved')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', background: '#10b981', color: '#fff', border: 'none', cursor: 'pointer' }}>Resolve</button>
+                                                            <button onClick={() => handleUpdateCR(cr._id || cr.id, 'Rejected')} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer' }}>Reject</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -741,6 +991,53 @@ const ComplianceReview = ({ user }) => {
                     </div>
                 </div>
             )}
+
+            {redlineModal && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', width: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <span style={{ fontWeight: '600', fontSize: '16px', color: 'var(--text-primary)' }}>Redline: {redlineModal.clause.title}</span>
+                <button onClick={() => setRedlineModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--text-muted)' }}>×</button>
+            </div>
+
+            <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '8px' }}>Comparison</div>
+            <div style={{ fontSize: '14px', lineHeight: '1.6', padding: '12px', background: 'var(--bg-input)', borderRadius: '8px', marginBottom: '16px', color: 'var(--text-primary)' }}>
+                {wordDiff(redlineModal.clause.content, redlineModal.result.redlinedClause || '').map((token, i) => (
+                    <span key={i} style={{
+                        background: token.type === 'added' ? 'rgba(16, 185, 129, 0.2)' : token.type === 'removed' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                        textDecoration: token.type === 'removed' ? 'line-through' : 'none',
+                        color: token.type === 'added' ? '#10b981' : token.type === 'removed' ? '#f87171' : 'inherit',
+                        marginRight: '4px'
+                    }}>{token.word}</span>
+                ))}
+            </div>
+
+            {redlineModal.result.issues?.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '8px' }}>Issues found</div>
+                    {redlineModal.result.issues.map((issue, i) => (
+                        <div key={i} style={{ fontSize: '13px', padding: '4px 0', color: 'var(--text-primary)' }}>• {issue.problem || issue}</div>
+                    ))}
+                </div>
+            )}
+
+            {redlineModal.result.justification && (
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                    <strong>Justification:</strong> {redlineModal.result.justification}
+                </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={handleAcceptRedline} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f59e0b', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '14px' }}>
+                    Accept Redline
+                </button>
+                <button onClick={handleSaveRedlineToContract} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#10b981', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '500', fontSize: '14px' }}>
+                    Save to Contract
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
             {toast && (
                 <div style={{

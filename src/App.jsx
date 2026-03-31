@@ -3,7 +3,10 @@ import OutlookPanel from './components/OutlookPanel';
 import Login from './components/Login';
 
 function App() {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        const saved = localStorage.getItem('clm-user');
+        return saved ? JSON.parse(saved) : null;
+    });
     const [theme, setTheme] = useState(() => {
         return localStorage.getItem('clm-theme') || 'dark';
     });
@@ -17,8 +20,17 @@ function App() {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    const handleLogin = (userData) => setUser(userData);
-    const handleLogout = () => setUser(null);
+    const handleLogin = (userData) => {
+        setUser(userData);
+        localStorage.setItem('clm-user', JSON.stringify(userData));
+        if (userData.token) localStorage.setItem('token', userData.token);
+    };
+    
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('clm-user');
+        localStorage.removeItem('token');
+    };
 
     return (
         <div className="app-container">

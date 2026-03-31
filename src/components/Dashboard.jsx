@@ -1,22 +1,32 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styles from './Dashboard.module.css';
 import { 
     FileText, Search, Hourglass, PenTool, AlertTriangle, 
-    CircleDollarSign, CheckCircle, Minus, FileEdit, ClipboardList, 
+    CircleDollarSign, CheckCircle, Minus, XCircle, FileEdit, ClipboardList, 
     Calendar, AlertCircle, Scale, Clock, Shield, ShoppingCart, 
-    ArrowUpCircle, Gem, TrendingUp, LayoutGrid, List 
+    ArrowUpCircle, Gem, TrendingUp, LayoutGrid, List, Upload
 } from 'lucide-react';
+import AuditTrail from './upload/AuditTrail';
+import UploadContract from './UploadContract';
 
 const kpiData = [
     { id: 'active', label: 'Total Active Contracts', value: '1,284', icon: <FileText size={20} strokeWidth={1.5} />, color: '#00C9B1', trend: '+12%' },
     { id: 'pending', label: 'Pending Approvals', value: '24', icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B', trend: '+5' },
     { id: 'review', label: 'Contracts Under Review', value: '42', icon: <Search size={20} strokeWidth={1.5} />, color: '#3B82F6', trend: '-3' },
-    { id: 'signatures', label: 'Pending Signatures', value: '18', icon: <PenTool size={20} strokeWidth={1.5} />, color: '#8B5CF6', trend: '+2' },
+
     { id: 'expiring', label: 'Expiring This Month', value: '14', icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444', trend: 'Critical' },
     { id: 'pipeline', label: 'Pipeline Deal Value', value: '$4.2M', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#10B981', trend: '+18%' },
 ];
 
-const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
+const SORT_OPTIONS = [
+    { value: 'default', label: 'Latest Added' },
+    { value: 'name-asc', label: 'Name (A → Z)' },
+    { value: 'name-desc', label: 'Name (Z → A)' },
+    { value: 'value-desc', label: 'Value (High → Low)' },
+    { value: 'value-asc', label: 'Value (Low → High)' }
+];
+
+const AdminDashboard = ({ activeKpi, setActiveKpi, refreshTrigger }) => {
     const [stats, setStats] = React.useState(null);
     const [contracts, setContracts] = React.useState([]);
     const [selectedRecentContract, setSelectedRecentContract] = React.useState(null);
@@ -24,6 +34,8 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const [toast, setToast] = React.useState('');
     const [deleteConfirm, setDeleteConfirm] = React.useState(null); // stores contract id to delete
     const [viewMode, setViewMode] = React.useState('card'); // 'card' | 'list'
+    const [filterStatus, setFilterStatus] = React.useState('All'); // 'All' | 'Draft' | 'Under Review' | 'Approved'
+    const [selectedSort, setSelectedSort] = React.useState('default');
 
     const showToast = (msg) => {
         setToast(msg);
@@ -37,7 +49,8 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     const handleDeleteConfirm = async () => {
         try {
             const response = await fetch(`/api/contracts/${deleteConfirm}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || 'mock-token'}` }
             });
             if (response.ok) {
                 setContracts(prev => prev.filter(c => c.id !== deleteConfirm));
@@ -65,7 +78,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
 
     React.useEffect(() => {
         loadData();
-    }, []);
+    }, [refreshTrigger]);
 
     const handleStatusChange = async (id, status, stage) => {
         const { contractService } = await import('../services/contractService');
@@ -74,29 +87,29 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     };
 
     // Enhance KPIs using real data
-    const awaitingSignatureCount = contracts.filter(c => c.stage === 'CAS Generated').length;
+    const completedCount = contracts.filter(c => c.status === 'Completed').length;
     const expiringSoonCount = contracts.filter(c => c.stage === 'DOA Approval').length;
-    const underReviewCount = contracts.filter(c => c.stage === 'Under Review').length;
+    const underReviewCount = contracts.filter(c => ['Under Review', 'Pending', 'Overdue'].includes(c.status)).length;
     const pendingApprovalCount = contracts.filter(c => c.status === 'Pending').length;
 
     const enhancedKpis = [
         { id: 'total', label: 'Total Contracts', value: contracts.length, icon: <FileText size={20} strokeWidth={1.5} />, color: '#00C9B1' },
         { id: 'review', label: 'Under Review', value: underReviewCount, icon: <Search size={20} strokeWidth={1.5} />, color: '#3B82F6' },
         { id: 'pending', label: 'Pending Approvals', value: pendingApprovalCount, icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
-        { id: 'signatures', label: 'Awaiting Signature', value: awaitingSignatureCount, icon: <PenTool size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
+        { id: 'completed', label: 'Completed', value: completedCount, icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#10B981' },
         { id: 'expiring', label: 'Expiring Soon', value: expiringSoonCount, icon: <AlertTriangle size={20} strokeWidth={1.5} />, color: '#EF4444' }
     ];
 
     // Donut Chart Real Data
     const activeCount = contracts.filter(c => c.status === 'Approved').length;
     const draftCount = contracts.filter(c => c.status === 'Draft').length;
-    const expiredCount = contracts.filter(c => c.stage === 'Rejected').length; // Prompt specified 'stage === Rejected'
+    const expiredCount = contracts.filter(c => c.status === 'Rejected').length;
 
     const statusData = [
+        { label: 'Completed', value: completedCount, color: '#10B981' },
         { label: 'Active', value: activeCount, color: '#00C9B1' },
         { label: 'Review', value: underReviewCount, color: '#3B82F6' },
-        { label: 'Draft', value: draftCount, color: '#8B5CF6' },
-        { label: 'Expired', value: expiredCount, color: '#EF4444' }
+        { label: 'Draft', value: draftCount, color: '#8B5CF6' }
     ];
 
     const totalDonut = Math.max(activeCount + underReviewCount + draftCount + expiredCount, 1);
@@ -114,8 +127,42 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
         { label: 'Proposal', sales: 60, contract: 40 },
         { label: 'Negotiation', sales: 45, contract: 65 },
         { label: 'Doc Prep', sales: 30, contract: 85 },
-        { label: 'Signature', sales: 15, contract: 95 }
+        { label: 'Signature', sales: 15, contract: 100 }
     ];
+
+    const visibleContracts = useMemo(() => {
+        const filteredContracts = filterStatus === 'All'
+            ? contracts
+            : contracts.filter((contract) => contract.status === filterStatus);
+
+        if (selectedSort === 'default') {
+            return filteredContracts;
+        }
+
+        const sortedContracts = [...filteredContracts];
+
+        sortedContracts.sort((a, b) => {
+            const titleA = a.title || '';
+            const titleB = b.title || '';
+            const valueA = Number(a.value) || 0;
+            const valueB = Number(b.value) || 0;
+
+            switch (selectedSort) {
+                case 'name-asc':
+                    return titleA.localeCompare(titleB, undefined, { sensitivity: 'base' });
+                case 'name-desc':
+                    return titleB.localeCompare(titleA, undefined, { sensitivity: 'base' });
+                case 'value-desc':
+                    return valueB - valueA;
+                case 'value-asc':
+                    return valueA - valueB;
+                default:
+                    return 0;
+            }
+        });
+
+        return sortedContracts;
+    }, [contracts, filterStatus, selectedSort]);
 
     return (
         <div className={styles.adminContainer}>
@@ -183,7 +230,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                 </div>
                                 <div className={styles.infoItem}>
                                     <span className={styles.infoLabel}>Department</span>
-                                    <span className={styles.infoValue}>{selectedRecentContract.department}</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.review_stages?.[0] || selectedRecentContract.department}</span>
                                 </div>
                                 <div className={styles.infoItem}>
                                     <span className={styles.infoLabel}>Current Stage</span>
@@ -196,39 +243,38 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                 <div className={styles.infoItem}>
                                     <span className={styles.infoLabel}>Status</span>
                                     <span className={styles.infoValue}>
-                                        <span className={`${styles.statusBadge} ${selectedRecentContract.status === 'Approved' ? styles.good : selectedRecentContract.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                        <span className={`${styles.statusBadge} ${
+                                            selectedRecentContract.status === 'Approved' ? styles.good : 
+                                            selectedRecentContract.status === 'Rejected' ? styles.critical : 
+                                            selectedRecentContract.status === 'Draft' ? styles.statusDraft : 
+                                            styles.warning
+                                        }`}>
                                             {selectedRecentContract.status}
                                         </span>
                                     </span>
                                 </div>
                             </div>
                         </div>
-
                         <div className={styles.modalSection}>
                             <h5>Department Review Status</h5>
                             <div className={styles.reviewStatusList}>
-                                {['Legal', 'Finance', 'Compliance', 'Procurement'].map((dept) => {
-                                    // Mocked logic for UI purposes based on current stage
-                                    const isApproved = selectedRecentContract.status === 'Approved' ||
-                                        (selectedRecentContract.stage !== 'Under Review' &&
-                                            selectedRecentContract.stage !== `${dept} Review` &&
-                                            selectedRecentContract.stage !== 'Draft');
+                                {(selectedRecentContract.review_stages || selectedRecentContract.required_reviewers || ['Legal', 'Finance', 'Compliance', 'Procurement']).map((dept) => {
+                                    const legacyStatusField = `${dept.toLowerCase()}_status`;
+                                    const status = selectedRecentContract?.reviews?.[dept]?.status || selectedRecentContract[legacyStatusField] || 'Not Started';
 
-                                    const isPending = selectedRecentContract.stage === `${dept} Review` ||
-                                        (selectedRecentContract.stage === 'Under Review' && !isApproved);
+                                    let icon = <Minus size={20} strokeWidth={1.5} />;
+                                    let badgeClass = '';
+                                    let label = status;
 
-                                    let icon = <Hourglass size={20} strokeWidth={1.5} />;
-                                    let badgeClass = styles.warning;
-                                    let label = 'Pending';
-
-                                    if (isApproved) {
+                                    if (status === 'Approved') {
                                         icon = <CheckCircle size={20} strokeWidth={1.5} />;
                                         badgeClass = styles.good;
-                                        label = 'Approved';
-                                    } else if (!isPending && selectedRecentContract.stage === 'Draft') {
-                                        icon = <Minus size={20} strokeWidth={1.5} />;
-                                        badgeClass = '';
-                                        label = 'Not Started';
+                                    } else if (status === 'Pending') {
+                                        icon = <Hourglass size={20} strokeWidth={1.5} />;
+                                        badgeClass = styles.warning;
+                                    } else if (status === 'Rejected') {
+                                        icon = <XCircle size={20} strokeWidth={1.5} />;
+                                        badgeClass = styles.critical;
                                     }
 
                                     return (
@@ -243,6 +289,8 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                 })}
                             </div>
                         </div>
+
+                        <AuditTrail contractId={selectedRecentContract.id} />
                     </div>
                 </div>
             )}
@@ -270,9 +318,9 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                 let filtered = [];
                                 switch (activeKpi.id) {
                                     case 'total': filtered = contracts; break;
-                                    case 'review': filtered = contracts.filter(c => c.stage === 'Under Review'); break;
+                                    case 'review': filtered = contracts.filter(c => ['Under Review', 'Pending', 'Overdue'].includes(c.status)); break;
                                     case 'pending': filtered = contracts.filter(c => c.status === 'Pending'); break;
-                                    case 'signatures': filtered = contracts.filter(c => c.stage === 'CAS Generated'); break;
+                                    case 'completed': filtered = contracts.filter(c => c.status === 'Completed'); break;
                                     case 'expiring': filtered = contracts.filter(c => c.stage === 'DOA Approval'); break;
                                     default: filtered = contracts;
                                 }
@@ -284,7 +332,12 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                             <td>{c.company}</td>
                                             <td>${(c.value || 0).toLocaleString()}</td>
                                             <td>
-                                                <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                <span className={`${styles.statusBadge} ${
+                                                    c.status === 'Approved' ? styles.good : 
+                                                    c.status === 'Rejected' ? styles.critical : 
+                                                    c.status === 'Draft' ? styles.statusDraft : 
+                                                    styles.warning
+                                                }`}>
                                                     {c.status}
                                                 </span>
                                             </td>
@@ -358,10 +411,34 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                         </div>
                         <div className={styles.headerRight}>
                             <span className={styles.countBadge}>{contracts.length} contracts</span>
+                            <div
+                                className={styles.sortControl}
+                                onClick={(event) => event.stopPropagation()}
+                            >
+                                <label htmlFor="recent-contract-sort" className={styles.sortLabel}>
+                                    Sort
+                                </label>
+                                <select
+                                    id="recent-contract-sort"
+                                    className={styles.sortSelect}
+                                    value={selectedSort}
+                                    onChange={(event) => setSelectedSort(event.target.value)}
+                                >
+                                    {SORT_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <div style={{display:'flex', gap:'4px', background:'rgba(255,255,255,0.05)',
                                          borderRadius:'8px', padding:'3px'}}>
                                 <button
-                                    onClick={() => setViewMode('card')}
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        setViewMode('card');
+                                    }}
                                     style={{
                                         display:'flex', alignItems:'center', justifyContent:'center',
                                         padding:'4px 8px', borderRadius:'6px', border:'none', cursor:'pointer',
@@ -374,7 +451,11 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                     <LayoutGrid size={16} strokeWidth={1.5} />
                                 </button>
                                 <button
-                                    onClick={() => setViewMode('list')}
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        setViewMode('list');
+                                    }}
                                     style={{
                                         display:'flex', alignItems:'center', justifyContent:'center',
                                         padding:'4px 8px', borderRadius:'6px', border:'none', cursor:'pointer',
@@ -391,11 +472,22 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                     </div>
 
                     <div className={`${styles.collapsibleContent} ${isRecentExpanded ? styles.expanded : ''}`}>
+                        <div className={styles.filterTabs}>
+                            {['All', 'Draft', 'Under Review', 'Approved'].map(status => (
+                                <button 
+                                    key={status} 
+                                    className={`${styles.filterTab} ${filterStatus === status ? styles.filterTabActive : ''}`}
+                                    onClick={() => setFilterStatus(status)}
+                                >
+                                    {status}
+                                </button>
+                            ))}
+                        </div>
                         <div className={styles.collapsibleBody}>
-                            {contracts.length > 0 ? (
+                            {visibleContracts.length > 0 ? (
                                 viewMode === 'card' ? (
                                     <div className={styles.recentCardsGrid} style={{ marginTop: 0 }}>
-                                        {contracts.map((item) => (
+                                        {visibleContracts.map((item) => (
                                             <div key={item.id} className={styles.recentCard}>
                                                 <div>
                                                     <div className={styles.recentCardTitle}>{item.title}</div>
@@ -403,10 +495,15 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                                 </div>
                                                 <div className={styles.recentCardMeta}>
                                                     <span>Value<span className={styles.recentCardValue}>${(item.value || 0).toLocaleString()}</span></span>
-                                                    <span>Dept<strong style={{ color: 'var(--text-primary)' }}>{item.department}</strong></span>
+                                                    <span>Dept<strong style={{ color: 'var(--text-primary)' }}>{item.review_stages?.[0] || item.department}</strong></span>
                                                 </div>
                                                 <div className={styles.statusBadgeWrap}>
-                                                    <span className={`${styles.statusBadge} ${item.status === 'Approved' ? styles.good : item.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                    <span className={`${styles.statusBadge} ${
+                                                        item.status === 'Approved' ? styles.good : 
+                                                        item.status === 'Rejected' ? styles.critical : 
+                                                        item.status === 'Draft' ? styles.statusDraft : 
+                                                        styles.warning
+                                                    }`}>
                                                         {item.status}
                                                     </span>
                                                 </div>
@@ -417,30 +514,32 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                                    <table className={styles.recentContractsTable}>
                                         <thead>
-                                            <tr style={{ borderBottom:'1px solid var(--border-color,#e5e7eb)' }}>
+                                            <tr>
                                                 {['Title','Company','Value','Dept','Status','Action'].map(h => (
-                                                    <th key={h} style={{ textAlign:'left', padding:'8px 12px', fontSize:'12px',
-                                                        fontWeight:600, color:'var(--text-muted,#6b7280)',
-                                                        textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+                                                    <th key={h}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {contracts.map((item, idx) => (
-                                                <tr key={item.id} style={{ borderBottom:'1px solid var(--border-color,#e5e7eb)',
-                                                    background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
-                                                    <td style={{ padding:'10px 12px', fontSize:'13px', fontWeight:500, color:'var(--text-primary)' }}>{item.title}</td>
-                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-muted)' }}>{item.company}</td>
-                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-primary)' }}>${(item.value || 0).toLocaleString()}</td>
-                                                    <td style={{ padding:'10px 12px', fontSize:'13px', color:'var(--text-muted)' }}>{item.department}</td>
-                                                    <td style={{ padding:'10px 12px' }}>
-                                                        <span className={`${styles.statusBadge} ${item.status === 'Approved' ? styles.good : item.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                            {visibleContracts.map((item, idx) => (
+                                                <tr key={item.id} className={idx % 2 === 1 ? styles.recentContractsTableAltRow : ''}>
+                                                    <td className={styles.recentContractsPrimaryCell}>{item.title}</td>
+                                                    <td>{item.company}</td>
+                                                    <td className={styles.recentContractsValueCell}>${(item.value || 0).toLocaleString()}</td>
+                                                    <td>{item.review_stages?.[0] || item.department}</td>
+                                                    <td>
+                                                        <span className={`${styles.statusBadge} ${
+                                                            item.status === 'Approved' ? styles.good : 
+                                                            item.status === 'Rejected' ? styles.critical : 
+                                                            item.status === 'Draft' ? styles.statusDraft : 
+                                                            styles.warning
+                                                        }`}>
                                                             {item.status}
                                                         </span>
                                                     </td>
-                                                    <td style={{ padding:'10px 12px' }}>
+                                                    <td>
                                                         <button className={styles.viewDetailsBtn} onClick={() => setSelectedRecentContract(item)}>
                                                             View Details
                                                         </button>
@@ -452,7 +551,7 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
                                 )
                             ) : (
                                 <div style={{ textAlign:'center', padding:'40px', color:'var(--text-muted)' }}>
-                                    No contracts found. Upload contracts to get started.
+                                    No {filterStatus !== 'All' ? filterStatus.toLowerCase() : ''} contracts found.
                                 </div>
                             )}
                         </div>
@@ -511,80 +610,48 @@ const AdminDashboard = ({ activeKpi, setActiveKpi }) => {
     );
 };
 
-const SalesDashboard = () => {
-    const [contracts, setContracts] = React.useState([]);
-
-    React.useEffect(() => {
-        const fetchContracts = async () => {
-            const { contractService } = await import('../services/contractService');
-            const data = await contractService.getAllContracts();
-            // Filter only Sales department
-            const salesContracts = data.filter(c => c.department === 'Sales');
-            setContracts(salesContracts);
-        };
-        fetchContracts();
-    }, []);
-
-    const formatCurrency = (val) => `$${(val / 1000000).toFixed(1)}M`;
-    const pipelineValue = contracts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
-    const approved = contracts.filter(c => c.status === 'Approved').length;
-    const underReview = contracts.filter(c => c.stage === 'Under Review' || c.stage === 'Legal Review').length;
-
+const SalesDashboard = ({ onNavigate }) => {
     return (
-        <>
-            <div className={styles.kpiGrid}>
-                {[
-                    { label: 'My Submitted Contracts', value: contracts.length.toString(), icon: <FileEdit size={20} strokeWidth={1.5} />, color: '#00C9B1' },
-                    { label: 'Under Review', value: underReview.toString(), icon: <Search size={20} strokeWidth={1.5} />, color: '#F59E0B' },
-                    { label: 'Approved This Month', value: approved.toString(), icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#10B981' },
-                    { label: 'My Pipeline Value', value: pipelineValue > 0 ? formatCurrency(pipelineValue) : '$0.0M', icon: <CircleDollarSign size={20} strokeWidth={1.5} />, color: '#3B82F6' },
-                ].map((kpi, idx) => (
-                    <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
-                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
-                        <div className={styles.kpiInfo}>
-                            <span className={styles.kpiValue}>{kpi.value}</span>
-                            <span className={styles.kpiLabel}>{kpi.label}</span>
+        <div className={styles.salesHero}>
+            <div className={styles.salesHeroContent}>
+                <div className={styles.salesBadge}>Sales Workspace</div>
+                <h1 className={styles.salesTitle}>Contract Management made simple.</h1>
+                <p className={styles.salesSubtitle}>Effortlessly upload new agreements or manage existing ones through your streamlined portal.</p>
+                
+                <div className={styles.salesActionRow}>
+                    <button 
+                        className={styles.salesPrimaryBtn}
+                        onClick={() => onNavigate('Upload Contracts')}
+                    >
+                        <div className={styles.btnIcon}><Upload size={22} /></div>
+                        <div className={styles.btnText}>
+                            <span className={styles.btnLabel}>Upload Contract</span>
+                            <span className={styles.btnDesc}>Start AI extraction & routing</span>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    </button>
 
-            <div className={styles.tableCard}>
-                <div className={styles.cardHeader}>
-                    <h3>My Contracts</h3>
+                    <button 
+                        className={styles.salesSecondaryBtn}
+                        onClick={() => onNavigate('All Contracts')}
+                    >
+                        <div className={styles.btnIcon}><ClipboardList size={22} /></div>
+                        <div className={styles.btnText}>
+                            <span className={styles.btnLabel}>All Contracts</span>
+                            <span className={styles.btnDesc}>View & filter repository</span>
+                        </div>
+                    </button>
                 </div>
-                <table className={styles.table}>
-                    <thead>
-                        <tr>
-                            <th>Contract ID</th>
-                            <th>Customer Name</th>
-                            <th>Value</th>
-                            <th>Stage</th>
-                            <th>Status</th>
-                            <th>Submitted By</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {contracts.length > 0 ? contracts.map((c) => (
-                            <tr key={c.id}>
-                                <td className={styles.idCell}>{c.id}</td>
-                                <td className={styles.titleCell}>{c.company}</td>
-                                <td>${(c.value || 0).toLocaleString()}</td>
-                                <td>{c.stage}</td>
-                                <td><span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good :
-                                    c.status === 'Rejected' ? styles.critical : styles.warning
-                                    }`}>{c.status}</span></td>
-                                <td>{c.submittedBy}</td>
-                                <td><button className={styles.actionBtn}>View</button></td>
-                            </tr>
-                        )) : (
-                            <tr><td colSpan="7" style={{ textAlign: 'center', padding: '24px' }}>No records available</td></tr>
-                        )}
-                    </tbody>
-                </table>
             </div>
-        </>
+            <div className={styles.heroVisual}>
+                {/* Decorative element or illustration placeholder */}
+                <div className={styles.visualCircle}></div>
+                <div className={styles.visualGlass}>
+                    <div className={styles.glassLine}></div>
+                    <div className={styles.glassLine} style={{ width: '60%' }}></div>
+                    <div className={styles.glassLine} style={{ width: '80%' }}></div>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -600,7 +667,7 @@ const LegalDashboard = () => {
         fetchContracts();
     }, []);
 
-    const myContracts = contracts.filter(c => c.stage === 'Under Review' || c.stage === 'Legal Review');
+    const myContracts = contracts.filter(c => c.department === 'Legal' && ['Under Review', 'Pending', 'Overdue'].includes(c.status));
     const pendingCount = myContracts.length;
     const completedToday = contracts.filter(c => c.reviews?.Legal?.status === 'Approved').length || 0;
     const overdue = myContracts.filter(c => (c.daysPending || 0) > 5).length || 0;
@@ -755,8 +822,13 @@ const LegalDashboard = () => {
                                 <tr key={c.id}>
                                     <td className={styles.titleCell}>{c.title}</td>
                                     <td>{c.company}</td>
-                                    <td>
-                                        <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                                                     <td>
+                                        <span className={`${styles.statusBadge} ${
+                                            c.status === 'Approved' ? styles.good : 
+                                            c.status === 'Rejected' ? styles.critical : 
+                                            c.status === 'Draft' ? styles.statusDraft :
+                                            styles.warning
+                                        }`}>
                                             {c.status}
                                         </span>
                                     </td>
@@ -784,7 +856,7 @@ const FinanceDashboard = () => {
         fetchContracts();
     }, []);
 
-    const myContracts = contracts.filter(c => c.stage === 'Finance Review');
+    const myContracts = contracts.filter(c => c.department === 'Finance' && ['Under Review', 'Pending', 'Overdue'].includes(c.status));
     const pendingCount = myContracts.length;
     const completedToday = contracts.filter(c => c.reviews?.Finance?.status === 'Approved').length || 0;
     const overdue = myContracts.filter(c => (c.daysPending || 4) > 3).length || 0;
@@ -829,7 +901,7 @@ const ComplianceDashboard = () => {
         fetchContracts();
     }, []);
 
-    const myContracts = contracts.filter(c => c.stage === 'Compliance Review');
+    const myContracts = contracts.filter(c => c.department === 'Compliance' && ['Under Review', 'Pending', 'Overdue'].includes(c.status));
     const pendingCount = myContracts.length;
     const completedToday = contracts.filter(c => c.reviews?.Compliance?.status === 'Approved').length || 0;
     const overdue = myContracts.filter(c => (c.daysPending || 4) > 3).length || 0;
@@ -874,7 +946,7 @@ const ProcurementDashboard = () => {
         fetchContracts();
     }, []);
 
-    const myContracts = contracts.filter(c => c.stage === 'Procurement Review');
+    const myContracts = contracts.filter(c => c.department === 'Procurement' && ['Under Review', 'Pending', 'Overdue'].includes(c.status));
     const pendingCount = myContracts.length;
     const completedToday = contracts.filter(c => c.reviews?.Procurement?.status === 'Approved').length || 0;
     const overdue = myContracts.filter(c => (c.daysPending || 4) > 3).length || 0;
@@ -908,12 +980,20 @@ const ProcurementDashboard = () => {
 };
 
 const ManagerDashboard = () => {
+    const [stats, setStats] = React.useState(null);
     const [contracts, setContracts] = React.useState([]);
 
     const loadData = async () => {
         const { approvalService } = await import('../services/approvalService');
-        const data = await approvalService.getPendingApprovals('Manager');
-        setContracts(data);
+        const { dashboardService } = await import('../services/dashboardService');
+        
+        const [approvalData, statsData] = await Promise.all([
+            approvalService.getPendingApprovals('Manager'),
+            dashboardService.getDashboardKPIs()
+        ]);
+        
+        setContracts(approvalData);
+        setStats(statsData);
     };
 
     React.useEffect(() => {
@@ -931,7 +1011,7 @@ const ManagerDashboard = () => {
             <div className={styles.kpiGrid}>
                 {[
                     { label: 'Pending Approvals', value: contracts.length.toString(), icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
-                    { label: 'Approved This Month', value: '15', icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' }, // Hard to calculate retrospectively without proper tracking, leaving mock for now or 0
+                    { label: 'Approved This Month', value: stats?.approvedThisMonth?.toString() ?? '0', icon: <CheckCircle size={20} strokeWidth={1.5} />, color: '#00C9B1' },
                     { label: 'Escalated to VP', value: '0', icon: <ArrowUpCircle size={20} strokeWidth={1.5} />, color: '#8B5CF6' },
                     { label: 'Avg Approval Time', value: '--', icon: <Clock size={20} strokeWidth={1.5} />, color: '#3B82F6' },
                 ].map((kpi, idx) => (
@@ -1059,13 +1139,13 @@ const CEODashboard = () => {
     );
 };
 
-const Dashboard = ({ user }) => {
+const Dashboard = ({ user, refreshTrigger, onNavigate }) => {
     const [activeKpi, setActiveKpi] = useState(null);
 
     const getDashboardHeader = () => {
         switch (user?.role) {
             case 'Admin': return 'Admin Dashboard';
-            case 'Sales': return 'My Sales Dashboard';
+            case 'Sales': return 'Sales Workspace';
             case 'Legal': return 'Legal Counsel Dashboard';
             case 'Finance': return 'Finance Approval Dashboard';
             case 'Compliance': return 'Compliance Dashboard';
@@ -1083,7 +1163,7 @@ const Dashboard = ({ user }) => {
             </header>
 
             {user?.role === 'Admin' && <AdminDashboard activeKpi={activeKpi} setActiveKpi={setActiveKpi} />}
-            {user?.role === 'Sales' && <SalesDashboard />}
+            {user?.role === 'Sales' && <SalesDashboard onNavigate={onNavigate} />}
             {user?.role === 'Legal' && <LegalDashboard />}
             {user?.role === 'Finance' && <FinanceDashboard />}
             {user?.role === 'Compliance' && <ComplianceDashboard />}

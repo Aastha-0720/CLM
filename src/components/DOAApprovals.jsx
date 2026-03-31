@@ -31,7 +31,10 @@ const DOAApprovals = ({ user, onNavigate }) => {
             const pending = allContracts.filter(c =>
                 c.stage === 'CAS Generated' ||
                 c.stage === 'DOA Approval' ||
-                c.stage === 'Pending Approval'
+                c.stage === 'Pending Approval' ||
+                c.stage === 'DOA Approved' ||
+                c.status === 'Approved' ||
+                c.status === 'Completed'
             );
 
             // Role based filtering
@@ -92,40 +95,70 @@ const DOAApprovals = ({ user, onNavigate }) => {
     };
 
     const handleApprove = async (id) => {
-        const contract = approvals.find(c => c.id === id);
-        if (!canUserApproveContract(contract)) {
-            setToast({ message: "You don't have DOA authority for this contract", type: 'error' });
-            setTimeout(() => setToast(null), 3000);
-            return;
-        }
+        const contract = approvals.find(c => c.id === id || c._id === id);
+        const currentRole = contract?.doa_stage || 'Initiator';
+        
         try {
-            await fetch(`/api/contracts/doa/${id}/approve`, { method: 'POST' });
-            setToast({ message: "✅ Contract Approved!", type: 'success' });
+            const resp = await fetch(`/api/doa/approve`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contract_id: id,
+                    role: currentRole,
+                    action: 'approve',
+                    comments: comment,
+                    approved_by: user?.name || 'Admin'
+                })
+            });
+            
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || 'Approval failed');
+            }
+
+            setToast({ message: "✅ DOA Step Approved!", type: 'success' });
+            setComment('');
             setTimeout(() => setToast(null), 3000);
             await loadData();
         } catch (err) {
-            setToast({ message: "❌ Failed to approve", type: 'error' });
+            setToast({ message: `❌ ${err.message}`, type: 'error' });
             setTimeout(() => setToast(null), 3000);
         }
     };
 
     const handleReject = async (id) => {
-        const contract = approvals.find(c => c.id === id);
-        if (!canUserApproveContract(contract)) {
-            setToast({ message: "You don't have DOA authority for this contract", type: 'error' });
-            setTimeout(() => setToast(null), 3000);
-            return;
-        }
+        const contract = approvals.find(c => c.id === id || c._id === id);
+        const currentRole = contract?.doa_stage || 'Reviewer';
+
         try {
-            await fetch(`/api/contracts/doa/${id}/reject`, { method: 'POST' });
-            setToast({ message: "❌ Contract Rejected", type: 'error' });
+            const resp = await fetch(`/api/doa/approve`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contract_id: id,
+                    role: currentRole,
+                    action: 'reject',
+                    comments: comment,
+                    approved_by: user?.name || 'Admin'
+                })
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || 'Rejection failed');
+            }
+
+            setToast({ message: "❌ DOA Step Rejected", type: 'error' });
+            setComment('');
             setTimeout(() => setToast(null), 3000);
             await loadData();
         } catch (err) {
-            setToast({ message: "❌ Failed to reject", type: 'error' });
+            setToast({ message: `❌ ${err.message}`, type: 'error' });
             setTimeout(() => setToast(null), 3000);
         }
     };
+
+
 
     const dynamicKpis = [
         { label: 'Pending Approvals', value: kpis.pending.toString(), icon: <Hourglass size={20} strokeWidth={1.5} />, color: '#F59E0B' },
@@ -237,7 +270,7 @@ const DOAApprovals = ({ user, onNavigate }) => {
                                                 ${(req.value || 0).toLocaleString()}
                                             </div>
                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                                DOA Level: <strong style={{ color: '#3B82F6' }}>{getDoaLevel(req.value).level}</strong>
+                                                DOA Level: <strong style={{ color: '#3B82F6' }}>{req.doaLevel || getDoaLevel(req.value).level}</strong>
                                             </span>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
@@ -246,19 +279,31 @@ const DOAApprovals = ({ user, onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    <div className={styles.cardFooter} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: 'auto', gap: '8px' }}>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleReject(req.id); }} 
-                                            style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444', fontWeight: '600', cursor: 'pointer' }}
-                                        >
-                                            Reject
-                                        </button>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleApprove(req.id); }} 
-                                            style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#10B98120', color: '#10B981', border: '1px solid #10B981', fontWeight: '600', cursor: 'pointer' }}
-                                        >
-                                            Approve
-                                        </button>
+                                    <div className={styles.cardFooter} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: 'auto', gap: '8px', flexDirection: 'column' }}>
+                                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                            <button 
+                                                disabled={req.status === 'Approved' || req.stage === 'DOA Approved'}
+                                                onClick={(e) => { e.stopPropagation(); handleReject(req.id); }} 
+                                                style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#EF444420', color: '#EF4444', border: '1px solid #EF4444', fontWeight: '600', cursor: (req.status === 'Approved' || req.stage === 'DOA Approved') ? 'not-allowed' : 'pointer', opacity: (req.status === 'Approved' || req.stage === 'DOA Approved') ? 0.5 : 1 }}
+                                            >
+                                                Reject
+                                            </button>
+                                            <button 
+                                                disabled={req.status === 'Approved' || req.stage === 'DOA Approved'}
+                                                onClick={(e) => { e.stopPropagation(); handleApprove(req.id); }} 
+                                                style={{ flex: 1, padding: '8px', borderRadius: '6px', background: '#10B98120', color: '#10B981', border: '1px solid #10B981', fontWeight: '600', cursor: (req.status === 'Approved' || req.stage === 'DOA Approved') ? 'not-allowed' : 'pointer', opacity: (req.status === 'Approved' || req.stage === 'DOA Approved') ? 0.5 : 1 }}
+                                            >
+                                                Approve
+                                            </button>
+                                        </div>
+
+                                        {req.status === 'Completed' && (
+                                            <div style={{ width: '100%', marginTop: '4px' }}>
+                                                <div style={{ textAlign: 'center', padding: '10px', background: '#00C9B120', color: '#00C9B1', borderRadius: '6px', fontSize: '12px', fontWeight: '800', border: '1px solid #00C9B1', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                    Workflow Completed ✅
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 );
@@ -289,14 +334,14 @@ const DOAApprovals = ({ user, onNavigate }) => {
                                     <label>Contract Title</label>
                                     <p>{selectedReq.title}</p>
                                 </div>
-                                <div className={styles.summaryGrid}>
-                                    <div className={styles.summaryItem}>
-                                        <label>Business Unit</label>
-                                        <span>{selectedReq.department}</span>
-                                    </div>
-                                    <div className={styles.summaryItem}>
-                                        <label>Value</label>
-                                        <span className={styles.valueText}>${(selectedReq.value || 0).toLocaleString()}</span>
+                                    <div className={styles.summaryGrid}>
+                                        <div className={styles.summaryItem}>
+                                            <label>Business Unit</label>
+                                            <span>{selectedReq.businessUnit || selectedReq.department || 'N/A'}</span>
+                                        </div>
+                                        <div className={styles.summaryItem}>
+                                            <label>Value</label>
+                                            <span className={styles.valueText}>${(selectedReq.value || 0).toLocaleString()}</span>
                                     </div>
                                 </div>
                                 <div className={styles.summaryItem}>
@@ -312,31 +357,32 @@ const DOAApprovals = ({ user, onNavigate }) => {
                             </section>
 
                             <section className={styles.hierarchySection}>
-                                <h4 className={styles.subHeader}>APPROVAL HIERARCHY</h4>
-                                <div className={styles.hierarchyCard} style={{ background: 'rgba(255,255,255,0.03)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <span className={styles.levelBadge} style={{ fontSize: '14px', padding: '4px 12px' }}>
-                                            Level {getDoaLevel(selectedReq.value).level}
-                                        </span>
-                                        <span style={{ color: '#00C9B1', fontWeight: '700', fontSize: '13px' }}>
-                                            Required: {getDoaLevel(selectedReq.value).role}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className={styles.valueBarContainer}>
-                                        <div 
-                                            className={styles.valueBar} 
-                                            style={{ width: `${Math.min((selectedReq.value / getDoaLevel(selectedReq.value).threshold) * 100, 100)}%` }}
-                                        ></div>
-                                        {selectedReq.value < 50000 && (
-                                            <div className={styles.thresholdLine} style={{ left: selectedReq.value < 10000 ? '20%' : '50%' }}></div>
-                                        )}
-                                    </div>
-                                    <div className={styles.valueLabel}>
-                                        <span>$0</span>
-                                        <span>Current: ${(selectedReq.value || 0).toLocaleString()}</span>
-                                        <span>Limit: ${getDoaLevel(selectedReq.value).threshold.toLocaleString()}+</span>
-                                    </div>
+                                <h4 className={styles.subHeader}>APPROVAL WORKFLOW</h4>
+                                <div className={styles.workflowSteps}>
+                                    {(selectedReq.approvalChain && selectedReq.approvalChain.length > 0 ? selectedReq.approvalChain : [
+                                        { role: 'Initiator' },
+                                        { role: 'Evaluator' },
+                                        { role: 'Reviewer' },
+                                        { role: 'Approver' }
+                                    ]).map((step, idx) => {
+                                        const role = step.role;
+                                        const isCurrent = selectedReq.doa_stage === role;
+                                        const isDone = selectedReq.status === 'Approved' || selectedReq.status === 'Completed' || 
+                                                       (selectedReq.approvalChain && selectedReq.approvalChain.some(s => s.role === role && (s.status === 'Approved' || s.status === 'Completed')));
+                                        
+                                        return (
+                                            <div key={role} className={`${styles.stepItem} ${isCurrent ? styles.stepCurrent : ''} ${isDone ? styles.stepDone : ''}`}>
+                                                <div className={styles.stepMarker}>
+                                                    {isDone ? <CheckCircle size={14} /> : idx + 1}
+                                                </div>
+                                                <div className={styles.stepInfo}>
+                                                    <span className={styles.stepRole}>{role}</span>
+                                                    <span className={styles.stepStatus}>{isDone ? 'Completed' : (isCurrent ? 'Current' : 'Pending')}</span>
+                                                </div>
+                                                {idx < 3 && <div className={styles.stepConnector}></div>}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </section>
 
@@ -349,9 +395,34 @@ const DOAApprovals = ({ user, onNavigate }) => {
                                     onChange={(e) => setComment(e.target.value)}
                                 ></textarea>
                                 <div className={styles.mainActions}>
-                                    <div className={styles.primaryBtns} style={{ width: '100%' }}>
-                                        <button onClick={() => handleReject(selectedReq.id)} className={styles.btnReject} style={{ width: '50%' }}>Reject</button>
-                                        <button onClick={() => handleApprove(selectedReq.id)} className={styles.btnApprove} style={{ width: '50%' }}>Approve</button>
+                                    <div className={styles.primaryBtns} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                                            <button 
+                                                disabled={selectedReq.status === 'Completed' || selectedReq.stage === 'Completed'}
+                                                onClick={() => handleReject(selectedReq.id)} 
+                                                className={styles.btnReject} 
+                                                style={{ width: '50%', opacity: (selectedReq.status === 'Completed' || selectedReq.stage === 'Completed') ? 0.5 : 1, cursor: (selectedReq.status === 'Completed' || selectedReq.stage === 'Completed') ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Reject
+                                            </button>
+                                            <button 
+                                                disabled={selectedReq.status === 'Completed' || selectedReq.stage === 'Completed'}
+                                                onClick={() => handleApprove(selectedReq.id)} 
+                                                className={styles.btnApprove} 
+                                                style={{ width: '50%', opacity: (selectedReq.status === 'Completed' || selectedReq.stage === 'Completed') ? 0.5 : 1, cursor: (selectedReq.status === 'Completed' || selectedReq.stage === 'Completed') ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Approve
+                                            </button>
+                                        </div>
+                                        {selectedReq.status === 'Completed' && (
+                                            <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #00C9B1', width: '100%', textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', color: '#00C9B1', fontWeight: '800', fontSize: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                    <CheckCircle size={24} />
+                                                    CONTRACT COMPLETED
+                                                </div>
+                                                <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '8px', marginBottom: 0 }}>This contract has received all required DOA approvals and is now finalized.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </section>

@@ -16,6 +16,18 @@ const CAS = ({ user }) => {
         setTimeout(() => setToast(''), 3000);
     };
 
+    const displayValue = (value) => {
+        if (value === null || value === undefined) return 'N/A';
+        const normalized = String(value).trim();
+        return normalized ? normalized : 'N/A';
+    };
+
+    const formatDate = (value) => {
+        if (!value) return 'N/A';
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? displayValue(value) : parsed.toLocaleDateString();
+    };
+
     const loadData = async () => {
         setLoading(true);
         try {
@@ -42,15 +54,19 @@ const CAS = ({ user }) => {
     const initializeApprovalChain = (cas) => {
         return {
             ...cas,
-            businessUnit: cas.businessUnit || 'Apeiro Global',
-            department: cas.department || 'Operations',
-            agreementType: cas.agreementType || 'Master Service Agreement',
-            keyNotes: cas.keyNotes || 'Standard terms applied. No high-risk deviations noted.',
+            businessUnit: cas.businessUnit || cas.business_unit || cas.department || cas.agreementType || 'N/A',
+            department: cas.department || cas.businessUnit || 'N/A',
+            agreementType: cas.agreementType || 'N/A',
+            cost_center: cas.cost_center || cas.businessUnit || cas.department || 'N/A',
+            project_name: cas.project_name || cas.contractTitle || 'N/A',
+            effective_date: cas.effective_date || cas.createdAt || '',
+            execution_date: cas.execution_date || cas.createdAt || '',
+            keyNotes: cas.keyNotes || 'N/A',
             approvalChain: cas.approvalChain && cas.approvalChain.length > 0 ? cas.approvalChain : [
                 { role: 'Initiator', name: cas.initiator || 'Admin', status: 'Approved', timestamp: cas.createdAt, approvedBy: cas.initiator || 'Admin' },
-                { role: 'Endorser', name: 'Dept Head', status: 'Pending', timestamp: null, approvedBy: null },
-                { role: 'Reviewer', name: 'Legal Counsel', status: 'Pending', timestamp: null, approvedBy: null },
-                { role: 'Approver', name: 'Executive Director', status: 'Pending', timestamp: null, approvedBy: null }
+                { role: 'Evaluator', name: cas.businessUnit || cas.department || 'Business Evaluator', status: 'Pending', timestamp: null, approvedBy: null },
+                { role: 'Reviewer', name: cas.department || 'Cross-Functional Reviewer', status: 'Pending', timestamp: null, approvedBy: null },
+                { role: 'Approver', name: cas.doaApprover || 'Approver', status: 'Pending', timestamp: null, approvedBy: null }
             ]
         };
     };
@@ -156,93 +172,22 @@ const CAS = ({ user }) => {
         }
     };
 
-    const handleExportPDF = () => {
-        const printWindow = window.open('', '_blank', 'width=1000,height=1200');
-        const id = selectedCas.id.slice(-8).toUpperCase();
-        
-        const html = `
-            <html>
-                <head>
-                    <title>CAS-DOC-${id}</title>
-                    <style>
-                        @page { margin: 20mm; size: A4; }
-                        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: #1a1a2e; padding: 0; margin: 0; }
-                        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00C9B1; padding-bottom: 20px; margin-bottom: 30px; }
-                        .company-name { font-size: 24px; font-weight: 800; letter-spacing: 1px; }
-                        .doc-type { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; }
-                        .section { margin-bottom: 30px; }
-                        .section-title { font-size: 12px; font-weight: 700; color: #00C9B1; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 15px; }
-                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                        .item { margin-bottom: 15px; }
-                        .label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 4px; }
-                        .value { font-size: 14px; font-weight: 600; color: #1a1a2e; }
-                        .value-large { font-size: 20px; font-weight: 800; color: #00C9B1; }
-                        .notes-box { background: #f8f9fa; border-left: 4px solid #00C9B1; padding: 15px; font-size: 13px; line-height: 1.6; }
-                        .step { display: flex; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; align-items: center; }
-                        .step:last-child { border-bottom: none; }
-                        .step-icon { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; background: #f8f9fa; }
-                        .step-icon.approved { border-color: #00C9B1; color: #00C9B1; background: #e6fffb; }
-                        .step-info { flex: 1; }
-                        .step-role { font-size: 13px; font-weight: 700; }
-                        .step-name { font-size: 12px; color: #666; }
-                        .step-status { font-size: 11px; font-weight: 700; margin-left: auto; }
-                        .footer { position: fixed; bottom: 30px; left: 20mm; right: 20mm; font-size: 11px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 15px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <div class="company-name">INFINIA CLM SYSTEM</div>
-                        <div class="doc-type">Contract Approval Sheet</div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Section A — Contract Details</div>
-                        <div class="grid">
-                            <div class="item"><div class="label">Contract Title</div><div class="value">${selectedCas.contractTitle}</div></div>
-                            <div class="item"><div class="label">Contract RefID</div><div class="value">CAS-DOC-${id}</div></div>
-                            <div class="item"><div class="label">Agreement Type</div><div class="value">${selectedCas.agreementType || 'Master Service Agreement'}</div></div>
-                            <div class="item"><div class="label">Business Unit</div><div class="value">${selectedCas.businessUnit || 'Apeiro Global'}</div></div>
-                            <div class="item"><div class="label">Department</div><div class="value">${selectedCas.department || 'Operations'}</div></div>
-                            <div class="item"><div class="label">Contract Value</div><div class="value-large">$${(selectedCas.value || 0).toLocaleString()}</div></div>
-                            <div class="item"><div class="label">Execution Date</div><div class="value">${new Date(selectedCas.createdAt).toLocaleDateString()}</div></div>
-                            <div class="item"><div class="label">DOA Approver</div><div class="value">${getDoaApproverDisplay(selectedCas.value)}</div></div>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Section B — Key Notes</div>
-                        <div class="notes-box">${selectedCas.keyNotes || 'Standard terms applied. No high-risk deviations noted.'}</div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Section C — Approval Workflow</div>
-                        ${selectedCas.approvalChain.map((step, i) => `
-                            <div class="step">
-                                <div class="step-icon ${step.status === 'Approved' ? 'approved' : ''}">${step.status === 'Approved' ? '✓' : i + 1}</div>
-                                <div class="step-info">
-                                    <div class="step-role">${step.role}</div>
-                                    <div class="step-name">${step.name}</div>
-                                </div>
-                                <div class="step-status" style="color: ${step.status === 'Approved' ? '#00C9B1' : '#FAAD14'}">${step.status === 'Approved' ? 'APPROVED' : 'PENDING'}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-
-                    <div class="footer">
-                        Ref: CAS-DOC-${id} | Generated on ${new Date().toLocaleString()} | INFINIA CLM CONFIDENTIAL
-                    </div>
-
-                    <script>
-                        window.onload = function() {
-                            // window.close(); // Optional: close after printing
-                        }
-                    <\/script>
-                </body>
-            </html>
-        `;
-
-        printWindow.document.write(html);
-        printWindow.document.close();
+    const handleExportPDF = async () => {
+        if (!selectedCas) return;
+        try {
+            const blob = await casService.exportCAS(selectedCas.id);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `cas-${selectedCas.id.slice(-8).toUpperCase()}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to export CAS PDF:', error);
+            showToast('Failed to export PDF');
+        }
     };
 
     const getDoaApproverDisplay = (value) => {
@@ -351,7 +296,7 @@ const CAS = ({ user }) => {
                                                         <span className={styles.unitTag}>Initiated by {cas.initiator}</span>
                                                     </div>
                                                 </td>
-                                                <td>{cas.department || cas.doaApprover || 'Operations'}</td>
+                                                <td>{displayValue(cas.department || cas.doaApprover)}</td>
                                                 <td>
                                                     <span
                                                         className={styles.statusBadge}
@@ -425,27 +370,39 @@ const CAS = ({ user }) => {
                                         </div>
                                         <div className={styles.dataItem}>
                                             <label>Agreement Type</label>
-                                            <span>{selectedCas.agreementType || 'Master Service Agreement'}</span>
+                                            <span>{displayValue(selectedCas.agreementType)}</span>
                                         </div>
                                         <div className={styles.dataItem}>
                                             <label>Business Unit</label>
-                                            <span>{selectedCas.businessUnit || 'Apeiro Global'}</span>
+                                            <span>{displayValue(selectedCas.businessUnit)}</span>
                                         </div>
                                         <div className={styles.dataItem}>
                                             <label>Department</label>
-                                            <span>{selectedCas.department || 'Operations'}</span>
+                                            <span>{displayValue(selectedCas.department)}</span>
                                         </div>
                                         <div className={styles.dataItem}>
                                             <label>Contract Value</label>
                                             <span className={styles.valueLarge}>${(selectedCas.value || 0).toLocaleString()}</span>
                                         </div>
                                         <div className={styles.dataItem}>
+                                            <label>Cost Center</label>
+                                            <span>{displayValue(selectedCas.cost_center)}</span>
+                                        </div>
+                                        <div className={styles.dataItem}>
+                                            <label>Project Name</label>
+                                            <span>{displayValue(selectedCas.project_name)}</span>
+                                        </div>
+                                        <div className={styles.dataItem}>
+                                            <label>Effective Date</label>
+                                            <span>{formatDate(selectedCas.effective_date)}</span>
+                                        </div>
+                                        <div className={styles.dataItem}>
                                             <label>Execution Date</label>
-                                            <span>{new Date(selectedCas.createdAt).toLocaleDateString()}</span>
+                                            <span>{formatDate(selectedCas.execution_date)}</span>
                                         </div>
                                         <div className={styles.dataItem}>
                                             <label>DOA Approver</label>
-                                            <span>{getDoaApproverDisplay(selectedCas.value)}</span>
+                                            <span>{displayValue(selectedCas.doaApprover || getDoaApproverDisplay(selectedCas.value))}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -485,7 +442,7 @@ const CAS = ({ user }) => {
                                         </button>
                                     </div>
                                     <div className={styles.keyNotesBox}>
-                                        {selectedCas.keyNotes || 'Standard terms applied. No high-risk deviations noted in the initial compliance verification. Fiscal impact falls within the current quarterly budget allocation.'}
+                                        {displayValue(selectedCas.keyNotes)}
                                     </div>
                                 </div>
 

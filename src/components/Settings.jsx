@@ -47,6 +47,23 @@ const Settings = ({ user }) => {
         CEO: { min: 10001, max: 0 }
     });
 
+    useEffect(() => {
+        if (isAdmin) {
+            const fetchDoa = async () => {
+                try {
+                    const response = await fetch('/api/admin/doa-thresholds');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setDoa(data);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch DOA thresholds", e);
+                }
+            };
+            fetchDoa();
+        }
+    }, [isAdmin]);
+
     const showToast = (msg) => {
         setToast(msg);
         setTimeout(() => setToast(''), 3000);

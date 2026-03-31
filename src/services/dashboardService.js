@@ -11,7 +11,8 @@ export const dashboardService = {
             activeContracts: stats.totalContracts,
             underReview: stats.underReview,
             pendingApprovals: stats.pendingApproval,
-            approvedContracts: stats.approved
+            approvedContracts: stats.approved,
+            approvedThisMonth: stats.approvedThisMonth
         };
     }
 };

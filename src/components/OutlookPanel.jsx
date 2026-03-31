@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './OutlookPanel.module.css';
-import logo from '../assets/Artboard 1 copy 15.svg';
 import UploadContract from './UploadContract';
 import CAS from './CAS';
 import DOAApprovals from './DOAApprovals';
@@ -8,17 +7,22 @@ import Reports from './Reports';
 import Dashboard from './Dashboard';
 import Reviews from './Reviews';
 import Settings from './Settings';
+import AllContracts from './AllContracts';
+import DepartmentContracts from './DepartmentContracts';
+import Sidebar from './Sidebar';
 import { contractService } from '../services/contractService';
-import { LayoutDashboard, Upload, Scale, FileText, 
-         ClipboardCheck, BarChart2, Settings as SettingsIcon,
-         Bell, Search, Sun, Moon } from 'lucide-react';
+import { Bell, Search, Sun, Moon } from 'lucide-react';
 
 const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
-    const [selectedEmail, setSelectedEmail] = useState(null);
-    const [activeNav, setActiveNav] = useState('Dashboard');
+    const getInitialNav = () => window.location.pathname === '/department-contracts' ? 'Department Contracts' : 'Dashboard';
+    const [activeNav, setActiveNav] = useState(getInitialNav);
 
     // Live Clock State
     const [time, setTime] = useState(new Date());
+
+    // Refresh Trigger for Dashboard
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const triggerDashboardRefresh = () => setRefreshTrigger(prev => prev + 1);
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
@@ -32,45 +36,30 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const [showNotifs, setShowNotifs] = useState(false);
     const notifRef = useRef(null);
 
-    const allNavItems = [
-        { name: 'Dashboard', icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
-        { name: 'Upload Contracts', icon: <Upload size={20} strokeWidth={1.5} /> },
-        { name: 'Reviews', icon: <Scale size={20} strokeWidth={1.5} /> },
-        { name: 'CAS', icon: <FileText size={20} strokeWidth={1.5} /> },
-        { name: 'DOA Approvals', icon: <ClipboardCheck size={20} strokeWidth={1.5} /> },
-        { name: 'Reports', icon: <BarChart2 size={20} strokeWidth={1.5} /> },
-        { name: 'Settings', icon: <SettingsIcon size={20} strokeWidth={1.5} /> },
-    ];
-
-    const getNavItemsByRole = (role) => {
-        switch (role) {
-            case 'Legal':
-            case 'Finance':
-            case 'Compliance':
-            case 'Procurement':
-                return allNavItems.filter(item => ['Dashboard', 'Reviews', 'Reports', 'Settings'].includes(item.name));
-            case 'Sales':
-                return allNavItems.filter(item => ['Dashboard', 'Settings'].includes(item.name));
-            case 'Manager':
-                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports', 'Settings'].includes(item.name));
-            case 'CEO':
-                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'CAS', 'Reports', 'Settings'].includes(item.name));
-            case 'Admin':
-            default:
-                return allNavItems;
+    const navigateTo = (target) => {
+        const isDepartmentRole = ['Legal', 'Finance', 'Compliance', 'Procurement'].includes(user?.role);
+        if (target === 'All Contracts' && isDepartmentRole) {
+            window.history.pushState({}, '', '/department-contracts');
+            setActiveNav('Department Contracts');
+            return;
         }
-    };
-
-    const navItems = getNavItemsByRole(user?.role || 'Admin');
-
-    const getInitials = (name) => {
-        return name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U';
+        const nextPath = target === 'Department Contracts' ? '/department-contracts' : '/';
+        window.history.pushState({}, '', nextPath);
+        setActiveNav(target);
     };
 
     // Live clock effect
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        const onPopState = () => {
+            setActiveNav(window.location.pathname === '/department-contracts' ? 'Department Contracts' : 'Dashboard');
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
     }, []);
 
     // Search effect
@@ -157,42 +146,13 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
 
     return (
         <div className={styles.container}>
-            {/* Sidebar Navigation */}
-            <aside className={styles.sidebar}>
-                <div className={styles.logoContainer} style={{ height: '80px', padding: '0 24px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-                    <img src={logo} alt="Infinia Logo" style={{
-                        width: '160px',
-                        height: 'auto',
-                        filter: theme === 'light' ? 'brightness(0)' : 'brightness(1)',
-                        transition: 'filter 0.3s'
-                    }} />
-                </div>
-
-                <nav className={styles.nav}>
-                    <div className={styles.navGroup}>
-                        <span className={styles.navLabel}>PAGES</span>
-                        {navItems.map((item) => (
-                            <NavItem
-                                key={item.name}
-                                item={item}
-                                active={activeNav === item.name}
-                                onClick={() => setActiveNav(item.name)}
-                            />
-                        ))}
-                    </div>
-                </nav>
-
-                <div className={styles.userProfile}>
-                    <div className={styles.avatar}>{getInitials(user?.name)}</div>
-                    <div className={styles.userInfo}>
-                        <span className={styles.userName}>{user?.name || 'User'}</span>
-                        <span className={styles.userRoleBadge}>{user?.role || 'Role'}</span>
-                    </div>
-                    <button className={styles.logoutBtn} onClick={onLogout} title="Logout">
-                        Logout
-                    </button>
-                </div>
-            </aside>
+            <Sidebar
+                user={user}
+                onLogout={onLogout}
+                theme={theme}
+                activeNav={activeNav === 'Department Contracts' ? 'All Contracts' : activeNav}
+                onNavigate={navigateTo}
+            />
 
             {/* Main Content Area */}
             <div className={styles.contentWrapper}>
@@ -200,7 +160,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                     <div className={styles.breadcrumb}>
                         <span className={styles.breadParent}>Dashboard</span>
                         <span className={styles.breadDivider}>/</span>
-                        <span className={styles.breadCurrent}>{activeNav}</span>
+                        <span className={styles.breadCurrent}>{activeNav === 'Department Contracts' ? '/department-contracts' : activeNav}</span>
                     </div>
 
                     <div className={styles.headerActions}>
@@ -305,7 +265,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                                                         setNotifs(updated || []);
                                                     } catch (e) { console.error(e); }
                                                     setShowNotifs(false);
-                                                    setActiveNav('Reviews');
+                                                    navigateTo('Reviews');
                                                 }}>
                                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                                                         <span style={{ fontSize: '16px', marginTop: '2px' }}>🟢</span>
@@ -332,7 +292,10 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                 <main className={styles.mainContent}>
                     {activeNav === 'Upload Contracts' ? (
                         <div className={styles.fullWidthSection}>
-                            <UploadContract />
+                            <UploadContract 
+                                onNavigate={navigateTo} 
+                                onRefresh={triggerDashboardRefresh}
+                            />
                         </div>
                     ) : activeNav === 'CAS' ? (
                         <div className={styles.fullWidthSection}>
@@ -340,7 +303,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                         </div>
                     ) : activeNav === 'DOA Approvals' ? (
                         <div className={styles.fullWidthSection}>
-                            <DOAApprovals user={user} onNavigate={setActiveNav} />
+                            <DOAApprovals user={user} onNavigate={navigateTo} />
                         </div>
                     ) : activeNav === 'Reviews' ? (
                         <div className={styles.fullWidthSection}>
@@ -352,7 +315,19 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                         </div>
                     ) : activeNav === 'Dashboard' ? (
                         <div className={styles.fullWidthSection}>
-                            <Dashboard user={user} />
+                            <Dashboard 
+                                user={user} 
+                                refreshTrigger={refreshTrigger}
+                                onNavigate={navigateTo}
+                            />
+                        </div>
+                    ) : activeNav === 'All Contracts' ? (
+                        <div className={styles.fullWidthSection}>
+                            <AllContracts user={user} />
+                        </div>
+                    ) : activeNav === 'Department Contracts' ? (
+                        <div className={styles.fullWidthSection}>
+                            <DepartmentContracts user={user} />
                         </div>
                     ) : activeNav === 'Settings' ? (
                         <div className={styles.fullWidthSection}>
@@ -402,16 +377,5 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
         </div>
     );
 };
-
-const NavItem = ({ item, active, onClick }) => (
-    <button
-        className={`${styles.navItem} ${active ? styles.active : ''}`}
-        onClick={onClick}
-    >
-        {item.icon}
-        <span className={styles.label}>{item.name}</span>
-        {active && <div className={styles.activeIndicator}></div>}
-    </button>
-);
 
 export default OutlookPanel;

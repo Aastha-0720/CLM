@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import styles from '../UploadContract.module.css';
 import { contractService } from '../../services/contractService';
 import AiVerificationPanel from './AiVerificationPanel';
+import ContractEditor from './ContractEditor';
 
-const CreateContractTab = ({ onDataChange }) => {
+const CreateContractTab = ({ onDataChange, onNavigate, onRefresh }) => {
     const [formData, setFormData] = useState({
         title: '',
         counterpartyName: '',
         contractValue: '',
         duration: '',
         businessUnit: '',
+        contractOwner: '',
+        salesOpportunityId: '',
         category: '',
         riskLevel: 'Medium',
         startDate: '',
@@ -21,6 +24,8 @@ const CreateContractTab = ({ onDataChange }) => {
     const [generatedDraft, setGeneratedDraft] = useState('');
     const [errors, setErrors] = useState({});
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    const [isEditing, setIsEditing] = useState(false);
+    const [draftId, setDraftId] = useState(null);
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
@@ -46,6 +51,7 @@ const CreateContractTab = ({ onDataChange }) => {
         if (!formData.contractValue.trim()) newErrors.contractValue = 'Value is required';
         if (!formData.duration.trim()) newErrors.duration = 'Duration is required';
         if (!formData.businessUnit.trim()) newErrors.businessUnit = 'Business Unit is required';
+        if (!formData.contractOwner?.trim()) newErrors.contractOwner = 'Contract Owner is required';
         if (!formData.category) newErrors.category = 'Category is required';
 
         setErrors(newErrors);
@@ -62,6 +68,39 @@ const CreateContractTab = ({ onDataChange }) => {
         try {
             const draft = await contractService.generateContractDraft(formData);
             setGeneratedDraft(draft);
+            
+            // Immediate persistence
+            try {
+                const token = localStorage.getItem('token') || 'mock-token-admin';
+                const response = await fetch('/api/contracts/create', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: formData.title,
+                        company: formData.counterpartyName,
+                        value: parseFloat(formData.contractValue) || 0,
+                        duration: formData.duration,
+                        business_unit: formData.businessUnit,
+                        category: formData.category,
+                        risk_classification: formData.riskLevel,
+                        contract_owner: formData.contractOwner,
+                        salesOpportunityId: formData.salesOpportunityId,
+                        status: 'Draft',
+                        draftText: draft,
+                        submittedBy: 'Admin'
+                    })
+                });
+                if (response.ok) {
+                    const resData = await response.json();
+                    setDraftId(resData.id || resData._id);
+                    showToast('Draft initialized in database.');
+                }
+            } catch (saveErr) {
+                console.error("Failed to auto-save draft:", saveErr);
+            }
         } catch (error) {
             alert('Failed to generate contract draft.');
         } finally {
@@ -77,6 +116,8 @@ const CreateContractTab = ({ onDataChange }) => {
             contractValue: '',
             duration: '',
             businessUnit: '',
+            contractOwner: '',
+            salesOpportunityId: '',
             category: '',
             riskLevel: 'Medium',
             startDate: '',
@@ -94,10 +135,13 @@ const CreateContractTab = ({ onDataChange }) => {
             category: formData.category,
             riskLevel: formData.riskLevel,
             businessUnit: formData.businessUnit,
+            contractOwner: formData.contractOwner,
+            salesOpportunityId: formData.salesOpportunityId,
             clauses: [],
             complianceScore: 0,
             risks: [],
             missingFields: [],
+            id: draftId
         };
         return (
             <div className={styles.formPanel} style={{ animation: 'fadeIn 0.5s ease' }}>
@@ -108,18 +152,49 @@ const CreateContractTab = ({ onDataChange }) => {
                     </div>
                 </div>
 
-                <div style={{
-                    background: 'var(--bg-card)',
-                    padding: '2rem',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.8',
-                    marginBottom: '2rem',
-                    maxHeight: '400px',
-                    overflowY: 'auto'
-                }}>
+                <div 
+                    onClick={() => setIsEditing(true)}
+                    className={styles.clickablePreview}
+                    style={{
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        marginBottom: '2rem'
+                    }}
+                >
+                    <div className={styles.previewOverlay}>
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.4)',
+                            zIndex: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0,
+                            transition: 'opacity 0.2s',
+                            color: '#fff',
+                            fontWeight: '700',
+                            fontSize: '1.2rem',
+                            backdropFilter: 'blur(2px)'
+                        }}>
+                            Click to Edit Full Contract
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'var(--bg-card)',
+                        padding: '2rem',
+                        borderRadius: '12px',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.9rem',
+                        lineHeight: '1.8',
+                        maxHeight: '400px',
+                        overflowY: 'auto'
+                    }}>
                     {generatedDraft.split('\n').map((line, index) => {
                         // H1 heading
                         if (line.startsWith('# ')) {
@@ -161,13 +236,44 @@ const CreateContractTab = ({ onDataChange }) => {
                         }}>{line}</p>;
                     })}
                 </div>
+            </div>
 
                 <div className={styles.formFooter}>
                     <button className={styles.cancelBtn} onClick={() => setGeneratedDraft('')}>Edit Details</button>
+                    <button className={styles.cancelBtn} onClick={() => setIsEditing(true)}>View Full Contract</button>
                     <button className={styles.cancelBtn} onClick={handleReset}>Start Over</button>
                 </div>
 
-                <AiVerificationPanel data={panelData} onSuccess={handleReset} />
+                {isEditing && (
+                    <ContractEditor 
+                        data={{
+                            ...formData,
+                            draftText: generatedDraft,
+                            id: draftId,
+                            _id: draftId
+                        }}
+                        onBack={() => setIsEditing(false)}
+                        onUpdate={(updated) => {
+                            if (updated.draftText) setGeneratedDraft(updated.draftText);
+                            if (updated._id) setDraftId(updated._id);
+                        }}
+                        onSuccess={() => {
+                            setIsEditing(false);
+                            handleReset();
+                            if (onRefresh) onRefresh();
+                            if (onNavigate) onNavigate('Dashboard');
+                        }}
+                    />
+                )}
+
+                <AiVerificationPanel 
+                    data={panelData} 
+                    onSuccess={() => {
+                        handleReset();
+                        if (onRefresh) onRefresh();
+                        if (onNavigate) onNavigate('Dashboard');
+                    }} 
+                />
             </div>
         );
     }
@@ -282,6 +388,31 @@ const CreateContractTab = ({ onDataChange }) => {
                     </div>
 
                     <div className={styles.formGroup}>
+                        <label>Contract Owner *</label>
+                        <input
+                            name="contractOwner"
+                            className={`${styles.input} ${errors.contractOwner ? styles.inputError : ''}`}
+                            type="text"
+                            placeholder="e.g. John Doe"
+                            value={formData.contractOwner}
+                            onChange={handleInputChange}
+                        />
+                        {errors.contractOwner && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.contractOwner}</span>}
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label>Sales Opportunity ID</label>
+                        <input
+                            name="salesOpportunityId"
+                            className={styles.input}
+                            type="text"
+                            placeholder="e.g. OPP-12345"
+                            value={formData.salesOpportunityId}
+                            onChange={handleInputChange}
+                        />
+                    </div>
+
+                    <div className={styles.formGroup}>
                         <label>Category *</label>
                         <select
                             name="category"
@@ -347,9 +478,13 @@ const CreateContractTab = ({ onDataChange }) => {
                                 return;
                             }
                             try {
+                                const token = localStorage.getItem('token') || 'mock-token-admin';
                                 const response = await fetch('/api/contracts/save-draft', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
                                     body: JSON.stringify({
                                         title: formData.title,
                                         company: formData.counterpartyName,
@@ -361,13 +496,18 @@ const CreateContractTab = ({ onDataChange }) => {
                                         startDate: formData.startDate || '',
                                         endDate: formData.endDate || '',
                                         expiryDate: formData.expiryDate || '',
+                                        contract_owner: formData.contractOwner || '',
+                                        businessUnit: formData.businessUnit || '',
+                                        salesOpportunityId: formData.salesOpportunityId || '',
                                         draftText: generatedDraft || '',
                                         submittedBy: 'Admin'
                                     })
                                 });
                                 if (!response.ok) throw new Error('Failed');
+                                const resData = await response.json();
+                                setDraftId(resData.id || resData._id);
                                 showToast('Draft saved successfully!');
-                                handleReset();
+                                // Don't reset if we want to keep editing
                             } catch (err) {
                                 showToast('Failed to save draft.', 'error');
                             }

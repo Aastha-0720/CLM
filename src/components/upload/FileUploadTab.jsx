@@ -41,13 +41,28 @@ const FileUploadTab = ({ onDataChange }) => {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            const response = await fetch('/api/ai/extract-file', { method: 'POST', body: formData });
+            const token = localStorage.getItem('token') || 'mock-token-admin';
+            const response = await fetch('/api/ai/extract-file', { 
+                method: 'POST', 
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData 
+            });
             if (!response.ok) throw new Error('Extraction failed');
             const data = await response.json();
-            if (!data.counterparty && !data.contractValue) {
-                setError('AI could not extract data. Please try a different file.');
+
+            const hasExtractedData = Boolean(
+                data.counterparty ||
+                data.contractValue ||
+                data.effectiveDate ||
+                data.expiryDate ||
+                (Array.isArray(data.clauses) && data.clauses.length > 0)
+            );
+
+            if (!hasExtractedData) {
+                setError(data.error || 'AI could not extract data. Please try a different file.');
                 return;
             }
+
             setExtractedData({ ...data, title: file.name.replace(/\.(pdf|docx)$/i, '') });
             if (onDataChange) onDataChange({ ...data, title: file.name });
         } catch (err) {
@@ -62,75 +77,11 @@ const FileUploadTab = ({ onDataChange }) => {
     if (extractedData) {
         return (
             <div className={styles.formPanel} style={{ animation: 'fadeIn 0.4s ease' }}>
-                <style dangerouslySetInnerHTML={{ __html: `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }` }} />
-                <div className={styles.formHeader}>
-                    <div className={styles.formTitleGroup}>
-                        <h3 className={styles.formTitle}>AI Analysis Complete</h3>
-                        <p className={styles.formSub}>Deep extraction results for {file.name}</p>
-                    </div>
-                </div>
-
-                {/* Extracted summary */}
-                <div style={{ background: 'rgba(15,23,42,0.3)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-                        <div>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counterparty</label>
-                            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#fff' }}>{extractedData.counterparty}</div>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Value</label>
-                            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: '#10b981' }}>{extractedData.contractValue}</div>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</label>
-                            <div style={{ color: 'var(--text-primary)' }}>{extractedData.duration}</div>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Dates</label>
-                            <div style={{ color: 'var(--text-primary)' }}>{extractedData.keyDates}</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Clause table */}
-                {extractedData.clauses?.length > 0 && (
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <h4 style={{ marginBottom: '1rem', color: '#cbd5e1' }}>Smart Clause Classification</h4>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <th style={{ textAlign: 'left', padding: '12px', color: '#94a3b8', fontSize: '0.85rem' }}>Clause Preview</th>
-                                        <th style={{ textAlign: 'left', padding: '12px', color: '#94a3b8', fontSize: '0.85rem' }}>Classification</th>
-                                        <th style={{ textAlign: 'left', padding: '12px', color: '#94a3b8', fontSize: '0.85rem' }}>Routing</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {extractedData.clauses.map((clause, idx) => (
-                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ padding: '12px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>"{clause.text}"</td>
-                                            <td style={{ padding: '12px' }}>
-                                                <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', background: 'rgba(37,99,235,0.2)', color: '#60a5fa' }}>{clause.type}</span>
-                                            </td>
-                                            <td style={{ padding: '12px' }}>
-                                                <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>{clause.department}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
                 <AiVerificationPanel data={extractedData} onSuccess={handleReset} />
-
-                <div className={styles.formFooter} style={{ marginTop: '1rem' }}>
-                    <button className={styles.cancelBtn} onClick={handleReset}>Upload Different File</button>
-                </div>
             </div>
         );
     }
+
 
     return (
         <div className={styles.formPanel}>

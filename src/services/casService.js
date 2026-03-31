@@ -26,5 +26,11 @@ export const casService = {
         });
         if (!response.ok) throw new Error('Failed to update CAS status');
         return await response.json();
+    },
+
+    exportCAS: async (casId) => {
+        const response = await fetch(`${API_BASE}/cas/${casId}/export`);
+        if (!response.ok) throw new Error('Failed to export CAS PDF');
+        return await response.blob();
     }
 };
