@@ -17,6 +17,12 @@ const FileUploadTab = ({ onDataChange }) => {
 
     const validateFile = (selectedFile) => {
         if (!selectedFile) return 'No file selected.';
+        
+        // Check for 0-byte files
+        if (selectedFile.size === 0) {
+            return 'The selected file is empty (0 bytes). Please upload a valid document.';
+        }
+
         const ext = selectedFile.name.split('.').pop().toLowerCase();
         if (!['pdf', 'docx'].includes(ext)) {
             return `Unsupported file type ".${ext}". Only PDF and DOCX files are allowed.`;

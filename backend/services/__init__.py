@@ -112,7 +112,8 @@ async def analyze_contract_with_ai(document_text: str) -> dict:
                 "role": "user",
                 "content": f"Analyze:\n\n{document_text[:4000]}"
             }],
-            max_tokens=1000
+            max_tokens=1000,
+            temperature=0
         )
         return json.loads(
             response.choices[0].message.content
@@ -145,7 +146,8 @@ async def extract_from_email_with_ai(email_text: str) -> dict:
                 "role": "user",
                 "content": f"Extract from:\n\n{email_text[:3000]}"
             }],
-            max_tokens=500
+            max_tokens=500,
+            temperature=0
         )
         return json.loads(
             response.choices[0].message.content
@@ -179,7 +181,8 @@ Company: {company}
 Reviews: {comments_text}
 Write professional key notes."""
             }],
-            max_tokens=300
+            max_tokens=300,
+            temperature=0
         )
         return response.choices[0].message.content.strip()
     except Exception as e:

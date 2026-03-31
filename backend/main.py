@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Query, Form, Header, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,7 @@ from database import db
 from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId, WhitelistEntry, DigInkDocument
 import services
 import digink_service
+from routes.digink_routes import router as digink_router
 from openai import OpenAI
 import os
 
@@ -33,6 +35,9 @@ deepseek_client = OpenAI(
     base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 )
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CLM Admin Backend")
 
@@ -73,6 +78,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(digink_router, prefix="/api")
 
 # Configuration from .env
 WHITELISTED_DOMAIN = os.getenv("WHITELISTED_DOMAIN", "apeiro.digital")
@@ -1699,20 +1706,31 @@ async def save_draft(data: dict = Body(...), current_user: dict = Depends(get_cu
 
 @app.post("/api/ai/extract-file")
 async def extract_file(file: UploadFile = File(...)):
+    logger.info(f"AI Extraction started for file: {file.filename}")
     try:
         # Validate file format
         file_ext = pathlib.Path(file.filename or "").suffix.lower()
         if file_ext not in ALLOWED_EXTENSIONS:
+            logger.warning(f"Unsupported file type: {file_ext}")
             raise HTTPException(
                 status_code=415,
                 detail=f"Unsupported file type '{file_ext}'. Only PDF and DOCX files are allowed."
             )
 
         contents = await file.read()
+        logger.info(f"File read successful. Size: {len(contents)} bytes")
 
-        # Validate file size
+        # Validate file size (rejection if empty)
+        if len(contents) == 0:
+            logger.warning("Empty file received for AI extraction.")
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded file is empty. Please upload a valid contract document."
+            )
+
         size_mb = len(contents) / (1024 * 1024)
         if size_mb > MAX_FILE_SIZE_MB:
+            logger.warning(f"File too large: {size_mb:.2f} MB")
             raise HTTPException(
                 status_code=413,
                 detail=f"File too large. Max {MAX_FILE_SIZE_MB}MB allowed."
@@ -1721,18 +1739,40 @@ async def extract_file(file: UploadFile = File(...)):
         text = ""
         
         if file.filename.endswith('.pdf'):
-            import PyPDF2
-            from io import BytesIO
-            pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
-            for page in pdf_reader.pages:
-                text += page.extract_text() or ""
+            try:
+                import PyPDF2
+                from io import BytesIO
+                pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+                for page in pdf_reader.pages:
+                    text += page.extract_text() or ""
+                logger.info(f"PDF text extraction complete. Length: {len(text)}")
+            except Exception as e:
+                logger.error(f"PyPDF2 error: {e}")
+                raise HTTPException(status_code=500, detail=f"PDF extraction error: {str(e)}")
         elif file.filename.endswith('.docx'):
-            import docx
-            from io import BytesIO
-            doc = docx.Document(BytesIO(contents))
-            text = "\n".join([p.text for p in doc.paragraphs])
+            try:
+                import docx
+                from io import BytesIO
+                doc = docx.Document(BytesIO(contents))
+                text = "\n".join([p.text for p in doc.paragraphs])
+                logger.info(f"DOCX text extraction complete. Length: {len(text)}")
+            except Exception as e:
+                logger.error(f"python-docx error: {e}")
+                raise HTTPException(status_code=500, detail=f"DOCX extraction error: {str(e)}")
         else:
             text = contents.decode('utf-8', errors='ignore')
+
+        if not text.strip():
+            logger.warning("No text extracted from document.")
+            return {
+                "status": "warning",
+                "message": "No text could be extracted from the document. It might be an image-only PDF.",
+                "counterparty": "",
+                "contractValue": "",
+                "duration": "",
+                "keyDates": "",
+                "clauses": []
+            }
 
         response = deepseek_client.chat.completions.create(
             model=DEEPSEEK_MODEL,
@@ -1751,22 +1791,40 @@ async def extract_file(file: UploadFile = File(...)):
                 Departments: Legal, Finance, Compliance, Procurement"""
             }, {
                 "role": "user",
-                "content": f"Extract from:\n\n{text[:4000]}"
+                "content": f"Extract from:\n\n{text[:6000]}"
             }],
-            max_tokens=1000,
+            max_tokens=1500,
             temperature=0
         )
+        
         import json, re
         raw = response.choices[0].message.content.strip()
+        logger.info(f"AI raw response received: {raw[:100]}...")
+        
         # Strip markdown code blocks if present
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
         raw = raw.strip()
-        result = json.loads(raw)
-        return result
+        
+        try:
+            result = json.loads(raw)
+            return {**result, "status": "success"}
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON Parse Error: {e}. Raw content: {raw}")
+            # Try to find JSON in the content if it's not raw JSON
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                result = json.loads(match.group(0))
+                return {**result, "status": "success"}
+            raise e
+
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        print(f"File extraction error: {e}")
+        logger.error(f"File extraction error: {str(e)}")
         return {
+            "status": "error",
+            "message": str(e),
             "counterparty": "",
             "contractValue": "",
             "duration": "",
