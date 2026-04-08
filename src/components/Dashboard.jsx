@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import styles from './Dashboard.module.css';
+
 import { 
     FileText, Search, Hourglass, PenTool, AlertTriangle, 
     CircleDollarSign, CheckCircle, Minus, XCircle, FileEdit, ClipboardList, 
@@ -1139,7 +1140,742 @@ const CEODashboard = () => {
     );
 };
 
+<<<<<<< Updated upstream
 const Dashboard = ({ user, refreshTrigger, onNavigate }) => {
+=======
+const UserDashboard = ({ user }) => {
+    const navigate = useNavigate();
+    const [contracts, setContracts] = React.useState([]);
+    const [activity, setActivity] = React.useState([]);
+    const [tasks, setTasks] = React.useState([]);
+    const [selectedRecentContract, setSelectedRecentContract] = React.useState(null);
+
+    React.useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const { contractService } = await import('../services/contractService');
+                const { dashboardService } = await import('../services/dashboardService');
+                
+                // Fetch contracts (backend filters for current user)
+                const data = await contractService.getAllContracts();
+                setContracts(data);
+                
+                // Fetch user activity logs
+                try {
+                    const logs = await dashboardService.getUserActivity();
+                    setActivity(logs);
+                } catch (e) {
+                    console.error("Failed to fetch activity", e);
+                    setActivity([]);
+                }
+                
+                // Fetch notifications (tasks)
+                try {
+                    const notifs = await contractService.getNotifications(user.role);
+                    
+                    // Also find contracts requiring action
+                    const actionContracts = data.filter(c => c.status === 'Draft' || c.status === 'Rejected').map(c => ({
+                        id: c.id,
+                        message: `Contract "${c.title}" needs your attention (${c.status})`,
+                        type: 'action',
+                        createdAt: c.updatedAt || c.createdAt || Date.now()
+                    }));
+                    
+                    setTasks([...notifs, ...actionContracts].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5));
+                } catch (e) {
+                    console.error("Failed to fetch tasks", e);
+                }
+            } catch (err) {
+                console.error("User dashboard fetch failed", err);
+            }
+        };
+        fetchData();
+    }, [user.name, user.role]);
+
+    // Calculate Metrics
+    const now = new Date();
+    const expiringCount = contracts.filter(c => {
+        if (!c.expiry_date) return false;
+        const days = (new Date(c.expiry_date) - now) / (1000 * 60 * 60 * 24);
+        return days > 0 && days <= 30;
+    }).length;
+
+    const stats = {
+        total: contracts.length,
+        reviews: contracts.filter(c => c.stage?.includes('Review') || c.status === 'Under Review').length,
+        approvals: contracts.filter(c => c.status === 'Pending Approval' || c.stage?.includes('Approval')).length,
+        expiring: expiringCount
+    };
+
+    return (
+        <div className={styles.userDashboard}>
+            <div className={styles.welcomeSection} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1>Welcome, {user.name}!</h1>
+                    <p>Here is an overview of your contract activities.</p>
+                </div>
+            </div>
+
+            <div className={styles.kpiGrid}>
+                {[
+                    { label: 'My Contracts', value: stats.total, icon: <FileText size={20} />, color: '#00C9B1' },
+                    { label: 'Pending Reviews', value: stats.reviews, icon: <Search size={20} />, color: '#8B5CF6' },
+                    { label: 'Pending Approvals', value: stats.approvals, icon: <Hourglass size={20} />, color: '#F59E0B' },
+                    { label: 'Expiring Soon', value: stats.expiring, icon: <AlertCircle size={20} />, color: '#EF4444' },
+                ].map((kpi, idx) => (
+                    <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
+                        <div className={styles.kpiInfo}>
+                            <span className={styles.kpiValue}>{kpi.value}</span>
+                            <span className={styles.kpiLabel}>{kpi.label}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className={styles.bottomGrid} style={{ gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                {/* My Tasks Section */}
+                <div className={styles.tableCard} style={{ margin: 0 }}>
+                    <div className={styles.cardHeader}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><CheckSquare size={18} /> My Tasks</h3>
+                    </div>
+                    <div style={{ padding: '0 20px 20px 20px' }}>
+                        {tasks.length > 0 ? tasks.map((t, idx) => (
+                            <div key={idx} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{t.message}</div>
+                                <button className={styles.viewDetailsBtn} style={{ padding: '4px 10px', fontSize: '11px', margin: 0 }} onClick={() => navigate('/user/contracts')}>Assess</button>
+                            </div>
+                        )) : (
+                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>You have no pending tasks.</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Recent Activity Section */}
+                <div className={styles.tableCard} style={{ margin: 0 }}>
+                    <div className={styles.cardHeader}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><Activity size={18} /> Recent Activity</h3>
+                    </div>
+                    <div style={{ padding: '0 20px 20px 20px' }}>
+                        {activity.length > 0 ? activity.slice(0,5).map((log, idx) => (
+                            <div key={idx} style={{ padding: '12px 0', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '12px' }}>
+                                <div style={{ minWidth: '8px', height: '8px', borderRadius: '50%', background: '#3B82F6', marginTop: '6px' }}></div>
+                                <div>
+                                    <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>{log.action}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{log.details}</div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(log.timestamp).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        )) : (
+                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No recent activity found.</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className={styles.tableCard} style={{ gridColumn: '1 / -1' }}>
+                <div className={styles.cardHeader}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <ClipboardList size={18} /> Recent Contracts
+                    </h3>
+                </div>
+                <table className={styles.table}>
+                    <thead>
+                        <tr>
+                            <th>Contract Name</th>
+                            <th>Status</th>
+                            <th>Value</th>
+                            <th>Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {contracts.length > 0 ? contracts.slice(0, 10).map((c) => (
+                            <tr 
+                                key={c.id} 
+                                onClick={() => setSelectedRecentContract(c)}
+                                style={{ cursor: 'pointer' }}
+                                className={styles.hoverRow}
+                            >
+                                <td className={styles.titleCell}>{c.title}</td>
+                                <td>
+                                    <span className={`${styles.statusBadge} ${c.status === 'Approved' ? styles.good : c.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                        {c.status}
+                                    </span>
+                                </td>
+                                <td>${(c.value || 0).toLocaleString()}</td>
+                                <td style={{ color: 'var(--text-secondary)' }}>
+                                    {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : '--'}
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px' }}>No contracts found.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Contract Details Modal */}
+            {selectedRecentContract && (
+                <div className={styles.modalOverlay} onClick={() => setSelectedRecentContract(null)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ position: 'absolute', top: '24px', right: '24px', zIndex: 10 }}>
+                            <button className={styles.closeModalBtn} style={{ position: 'static' }} onClick={() => setSelectedRecentContract(null)}>×</button>
+                        </div>
+
+                        <h3 className={styles.modalTitle}>{selectedRecentContract.title}</h3>
+                        <p className={styles.modalCompany}>{selectedRecentContract.company}</p>
+
+                        <div className={styles.modalSection}>
+                            <h5>Contract Information</h5>
+                            <div className={styles.modalGrid}>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Contract ID</span>
+                                    <span className={styles.infoValue} style={{ fontFamily: 'monospace', color: 'var(--accent-teal)' }}>{selectedRecentContract.id}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Value</span>
+                                    <span className={styles.infoValue}>${(selectedRecentContract.value || 0).toLocaleString()}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Department</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.department}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Current Stage</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.stage}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Last Updated</span>
+                                    <span className={styles.infoValue}>{selectedRecentContract.updatedAt ? new Date(selectedRecentContract.updatedAt).toLocaleString() : '--'}</span>
+                                </div>
+                                <div className={styles.infoItem}>
+                                    <span className={styles.infoLabel}>Status</span>
+                                    <span className={styles.infoValue}>
+                                        <span className={`${styles.statusBadge} ${selectedRecentContract.status === 'Approved' ? styles.good : selectedRecentContract.status === 'Rejected' ? styles.critical : styles.warning}`}>
+                                            {selectedRecentContract.status}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalSection}>
+                            <h5>Action History</h5>
+                            <div className={styles.reviewStatusList}>
+                                <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+                                    Full history available in "My Contracts" section.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                            <button 
+                                className={styles.actionBtn} 
+                                style={{ flex: 1, padding: '12px' }}
+                                onClick={() => navigate('/user/contracts')}
+                            >
+                                Open in My Contracts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+        </div>
+    );
+};
+
+
+
+const SuperadminDashboard = () => {
+    const navigate = useNavigate();
+    const [stats, setStats] = React.useState({ 
+        users: 0, admins: 0, contracts: 0, totalValue: 0,
+        drafts: 0, underReview: 0, pending: 0, executed: 0,
+        pendingDOA: 0, delayed: 0, sentSignature: 0, signed: 0, pendingSign: 0
+    });
+    const [recentLogs, setRecentLogs] = React.useState([]);
+    const [chartData, setChartData] = React.useState({
+        status: [], time: [], dept: [], pipeline: []
+    });
+    const [alerts, setAlerts] = React.useState([]);
+    const [health, setHealth] = React.useState({ api: 'Pending', database: 'Pending', email: 'Pending', digiInk: 'Pending' });
+
+    React.useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const { contractService } = await import('../services/contractService');
+                const contracts = await contractService.getAllContracts();
+                const totalValue = contracts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
+                
+                const userRes = await fetch('/api/admin/users', { headers: getAuthHeaders() });
+                const users = userRes.ok ? await userRes.json() : [];
+                
+                const logRes = await fetch('/api/admin/audit-logs', { headers: getAuthHeaders() });
+                const logs = logRes.ok ? await logRes.json() : [];
+                
+                // Helper for delayed calculation
+                const now = new Date();
+                const checkDelayed = (dateStr, days = 5) => {
+                    if (!dateStr) return false;
+                    const updated = new Date(dateStr);
+                    const diffDays = (now - updated) / (1000 * 60 * 60 * 24);
+                    return diffDays > days;
+                };
+
+                // Identify Alerts
+                const newAlerts = [];
+                contracts.forEach(c => {
+                    // 1. Expiring Soon (Next 7 days)
+                    if (c.expiry_date) {
+                        const expiry = new Date(c.expiry_date);
+                        const diffDays = (expiry - now) / (1000 * 60 * 60 * 24);
+                        if (diffDays > 0 && diffDays <= 7) {
+                            newAlerts.push({
+                                id: c._id || c.id,
+                                title: 'Contract Expiring Soon',
+                                message: `"${c.title}" expires in ${Math.ceil(diffDays)} days.`,
+                                type: 'warning',
+                                icon: <AlertCircle size={16} />,
+                                fileName: c.title
+                            });
+                        }
+                    }
+
+                    // 2. Overdue Approvals (> 5 days)
+                    if (c.status === 'Pending Approval' && checkDelayed(c.updatedAt, 5)) {
+                        newAlerts.push({
+                            id: c._id || c.id,
+                            title: 'Overdue Approval',
+                            message: `"${c.title}" has been pending approval for over 5 days.`,
+                            type: 'danger',
+                            icon: <AlertTriangle size={16} />,
+                            fileName: c.title
+                        });
+                    }
+
+                    // 3. Signature Issues (> 48h)
+                    if ((c.status === 'Sent for Signature' || c.status === 'Pending Signature') && checkDelayed(c.updatedAt, 2)) {
+                        newAlerts.push({
+                            id: c._id || c.id,
+                            title: 'Signature Stalled',
+                            message: `"${c.title}" is pending signature for more than 48 hours.`,
+                            type: 'danger',
+                            icon: <PenTool size={16} />,
+                            fileName: c.title
+                        });
+                    }
+                });
+                setAlerts(newAlerts.slice(0, 5)); // Show top 5 alerts
+
+                // Process Chart Data
+                const statusMap = contracts.reduce((acc, c) => {
+                    const s = c.status || 'Draft';
+                    acc[s] = (acc[s] || 0) + 1;
+                    return acc;
+                }, {});
+                const statusData = Object.keys(statusMap).map(name => ({ name, value: statusMap[name] }));
+
+                const deptMap = contracts.reduce((acc, c) => {
+                    const d = c.department || 'General';
+                    acc[d] = (acc[d] || 0) + 1;
+                    return acc;
+                }, {});
+                const deptData = Object.keys(deptMap).map(name => ({ name, count: deptMap[name] }));
+
+                // Group by month
+                const timeMap = contracts.reduce((acc, c) => {
+                    const date = new Date(c.createdAt || Date.now());
+                    const month = date.toLocaleString('default', { month: 'short' });
+                    acc[month] = (acc[month] || 0) + 1;
+                    return acc;
+                }, {});
+                const timeData = Object.keys(timeMap).map(name => ({ name, count: timeMap[name] }));
+
+                // Pipeline vs Stage (Mocking logic based on existing data if fields missing)
+                const pipelineData = [
+                    { name: 'Lead', pipeline: 12, contract: 2 },
+                    { name: 'Quote', pipeline: 8, contract: 4 },
+                    { name: 'Negotiation', pipeline: 15, contract: 9 },
+                    { name: 'Closing', pipeline: 6, contract: 5 },
+                ];
+
+                setStats({
+                    users: users.filter(u => u.role === 'User').length,
+                    admins: users.filter(u => u.role === 'Admin' || u.role === 'Legal' || u.role === 'Finance').length,
+                    contracts: contracts.length,
+                    totalValue,
+                    drafts: contracts.filter(c => c.status === 'Draft' || c.stage === 'Draft').length,
+                    underReview: contracts.filter(c => c.status === 'Under Review' || c.stage?.includes('Review')).length,
+                    pending: contracts.filter(c => c.status === 'Pending Approval' || c.stage === 'Manager Approval').length,
+                    executed: contracts.filter(c => c.status === 'Executed' || c.status === 'Signed' || c.status === 'Active').length,
+                    pendingDOA: contracts.filter(c => c.status === 'Pending Approval').length,
+                    delayed: contracts.filter(c => c.status === 'Pending Approval' && checkDelayed(c.updatedAt)).length,
+                    sentSignature: contracts.filter(c => c.status === 'Sent for Signature').length,
+                    signed: contracts.filter(c => c.status === 'Signed' || c.status === 'Executed').length,
+                    pendingSign: contracts.filter(c => c.status === 'Pending Signature').length
+                });
+                setChartData({ status: statusData, time: timeData, dept: deptData, pipeline: pipelineData });
+                setRecentLogs(logs.slice(0, 20)); // show up to 20 logs
+
+                const healthRes = await fetch('/api/admin/health', { headers: getAuthHeaders() });
+                if (healthRes.ok) {
+                    const healthData = await healthRes.json();
+                    setHealth(healthData);
+                }
+            } catch (err) {
+                console.error("Dashboard data fetch failed", err);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const STATUS_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#94A3B8', '#8B5CF6'];
+
+    return (
+        <div className={styles.superadminDashboard}>
+            <div className={styles.welcomeSection} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                    <h1>System Overview</h1>
+                    <p>Global monitoring and administrative control panel.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {alerts.length > 0 && (
+                        <div style={{ padding: '4px 12px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', borderRadius: '100px', fontSize: '11px', fontWeight: '800', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                            {alerts.length} ACTIVE ALERTS
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <div className={styles.quickActionsBar}>
+                <button className={styles.quickActionBtn} onClick={() => navigate('/superadmin/manage-admins')}>
+                    <Shield size={18} />
+                    <span>Create Admin</span>
+                </button>
+                <button className={styles.quickActionBtn} onClick={() => navigate('/superadmin/manage-users')}>
+                    <Users size={18} />
+                    <span>Add User</span>
+                </button>
+                <button className={styles.quickActionBtn} onClick={() => navigate('/superadmin/settings')}>
+                    <SettingsIcon size={18} />
+                    <span>Configure DOA</span>
+                </button>
+                <button className={styles.quickActionBtn} onClick={() => navigate('/superadmin/contracts')}>
+                    <FileText size={18} />
+                    <span>View Contracts</span>
+                </button>
+            </div>
+
+            {/* Alerts Panel */}
+            {alerts.length > 0 && (
+                <div className={styles.alertsPanel}>
+                    {alerts.map((alert, idx) => (
+                        <div 
+                            key={idx} 
+                            className={`${styles.alertItem} ${alert.type === 'warning' ? styles.warning : ''}`}
+                            onClick={() => window.location.hash = `#/contracts?search=${encodeURIComponent(alert.fileName)}`}
+                        >
+                            <div className={styles.alertIcon} style={{ background: alert.type === 'warning' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: alert.type === 'warning' ? '#F59E0B' : '#EF4444' }}>
+                                {alert.icon}
+                            </div>
+                            <div className={styles.alertContent}>
+                                <div className={styles.alertTitle}>{alert.title}</div>
+                                <div className={styles.alertMessage}>{alert.message}</div>
+                            </div>
+                            <div className={styles.alertAction}>
+                                View Details &rarr;
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Top Row: System Metrics */}
+            <div className={styles.kpiGrid}>
+                {[
+                    { label: 'Total Users', value: stats.users, icon: <Users size={20} />, color: '#3B82F6' },
+                    { label: 'Active Admins', value: stats.admins, icon: <Shield size={20} />, color: '#8B5CF6' },
+                    { label: 'Total Contracts', value: stats.contracts, icon: <FileText size={20} />, color: '#00C9B1' },
+                    { label: 'System Value', value: `$${(stats.totalValue / 1000000).toFixed(1)}M`, icon: <CircleDollarSign size={20} />, color: '#F59E0B' },
+                ].map((kpi, idx) => (
+                    <div key={idx} className={styles.kpiCard} style={{ borderTop: `4px solid ${kpi.color}` }}>
+                        <div className={styles.kpiIcon} style={{ color: kpi.color }}>{kpi.icon}</div>
+                        <div className={styles.kpiInfo}>
+                            <span className={styles.kpiValue}>{kpi.value}</span>
+                            <span className={styles.kpiLabel}>{kpi.label}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Charts Row 1: Status and Trends */}
+            <div className={styles.chartsGrid}>
+                <div className={styles.chartCard}>
+                    <h3><LayoutGrid size={18} /> Contracts by Status</h3>
+                    <div className={styles.chartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie
+                                    data={chartData.status}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {chartData.status.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={styles.chartCard}>
+                    <h3><TrendingUp size={18} /> Creation Trends</h3>
+                    <div className={styles.chartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={chartData.time}>
+                                <defs>
+                                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
+                                <YAxis stroke="var(--text-muted)" fontSize={12} />
+                                <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#fff' }} />
+                                <Area type="monotone" dataKey="count" stroke="#3B82F6" fillOpacity={1} fill="url(#colorCount)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* Charts Row 2: Department and Pipeline */}
+            <div className={styles.chartsGrid}>
+                <div className={styles.chartCard}>
+                    <h3><Scale size={18} /> Department Distribution</h3>
+                    <div className={styles.chartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={chartData.dept}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
+                                <YAxis stroke="var(--text-muted)" fontSize={12} />
+                                <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#fff' }} />
+                                <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className={styles.chartCard}>
+                    <h3><List size={18} /> Pipeline vs Contract Stage</h3>
+                    <div className={styles.chartContainer}>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={chartData.pipeline}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
+                                <YAxis stroke="var(--text-muted)" fontSize={12} />
+                                <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#fff' }} />
+                                <Legend />
+                                <Bar dataKey="pipeline" fill="#F59E0B" name="Sales Pipeline" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="contract" fill="#10B981" name="Contract Stage" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* Second Row: Contract Status Breakdown */}
+            <div style={{ marginTop: '24px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Contract Lifecycle Status
+                </h3>
+                <div className={styles.kpiGrid}>
+                    {[
+                        { label: 'Draft Contracts', value: stats.drafts, icon: <PenTool size={20} />, color: '#94A3B8' },
+                        { label: 'Under Review', value: stats.underReview, icon: <Search size={20} />, color: '#3B82F6' },
+                        { label: 'Pending Approval', value: stats.pending, icon: <Hourglass size={20} />, color: '#F59E0B' },
+                        { label: 'Executed / Signed', value: stats.executed, icon: <CheckCircle size={20} />, color: '#10B981' },
+                    ].map((kpi, idx) => (
+                        <div key={idx} className={styles.kpiCard} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ 
+                                    width: '36px', height: '36px', borderRadius: '8px', 
+                                    background: `${kpi.color}15`, color: kpi.color,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    {React.cloneElement(kpi.icon, { size: 18 })}
+                                </div>
+                                <div className={styles.kpiInfo}>
+                                    <span style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>{kpi.value}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>{kpi.label}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Third Row: Approval & Signature Tracking */}
+            <div style={{ marginTop: '-16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Approval & Signature Tracking
+                </h3>
+                <div className={styles.kpiGrid} style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                    {[
+                        { label: 'Pending DOA', value: stats.pendingDOA, icon: <ClipboardList size={20} />, color: '#3B82F6' },
+                        { label: 'Delayed (>5 Days)', value: stats.delayed, icon: <AlertCircle size={20} />, color: '#EF4444' },
+                        { label: 'Sent for Sign', value: stats.sentSignature, icon: <ArrowUpCircle size={20} />, color: '#8B5CF6' },
+                        { label: 'Signed/Done', value: stats.signed, icon: <Gem size={20} />, color: '#10B981' },
+                        { label: 'Pending Sign', value: stats.pendingSign, icon: <PenTool size={20} />, color: '#F59E0B' },
+                    ].map((kpi, idx) => (
+                        <div key={idx} className={styles.kpiCard} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', padding: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ color: kpi.color }}>{React.cloneElement(kpi.icon, { size: 20 })}</div>
+                                <div className={styles.kpiInfo}>
+                                    <span style={{ fontSize: '24px', fontWeight: '800', color: '#fff' }}>{kpi.value}</span>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>{kpi.label}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Fourth Row: System Health Monitoring */}
+            <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+                <div className={styles.healthPanel}>
+                    <div className={styles.healthHeader}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', margin: 0 }}>
+                            <Activity size={18} /> System Health & Integrations
+                        </h3>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Real-time Status</span>
+                    </div>
+                    <div className={styles.healthGrid}>
+                        <div className={styles.healthItem}>
+                            <div className={styles.healthIcon}><Server size={18} /></div>
+                            <div className={styles.healthInfo}>
+                                <span className={styles.healthLabel}>Core API</span>
+                                <div className={styles.healthStatus}>
+                                    <span className={`${styles.statusDot} ${health.api === 'Running' ? styles.online : styles.offline}`}></span>
+                                    <span className={health.api === 'Running' ? styles.statusTextOnline : styles.statusTextOffline}>{health.api}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={styles.healthItem}>
+                            <div className={styles.healthIcon}><LayoutGrid size={18} /></div>
+                            <div className={styles.healthInfo}>
+                                <span className={styles.healthLabel}>Database</span>
+                                <div className={styles.healthStatus}>
+                                    <span className={`${styles.statusDot} ${health.database === 'Running' ? styles.online : styles.offline}`}></span>
+                                    <span className={health.database === 'Running' ? styles.statusTextOnline : styles.statusTextOffline}>{health.database}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={styles.healthItem}>
+                            <div className={styles.healthIcon}><Mail size={18} /></div>
+                            <div className={styles.healthInfo}>
+                                <span className={styles.healthLabel}>Email Service</span>
+                                <div className={styles.healthStatus}>
+                                    <span className={`${styles.statusDot} ${health.email === 'Running' ? styles.online : styles.offline}`}></span>
+                                    <span className={health.email === 'Running' ? styles.statusTextOnline : styles.statusTextOffline}>{health.email}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={styles.healthItem}>
+                            <div className={styles.healthIcon}><CheckSquare size={18} /></div>
+                            <div className={styles.healthInfo}>
+                                <span className={styles.healthLabel}>DigiInk Sign</span>
+                                <div className={styles.healthStatus}>
+                                    <span className={`${styles.statusDot} ${health.digiInk === 'Running' ? styles.online : styles.offline}`}></span>
+                                    <span className={health.digiInk === 'Running' ? styles.statusTextOnline : styles.statusTextOffline}>{health.digiInk}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className={styles.bottomGrid}>
+                <div className={styles.tableCard}>
+                    <div className={styles.cardHeader}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Clock size={18} /> Recent System Activity
+                        </h3>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            {recentLogs.length} events
+                        </span>
+                    </div>
+                    <table className={styles.table}>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recentLogs.length > 0 ? recentLogs.map((log, idx) => {
+                                // Determine badge color by action type
+                                const actionColors = {
+                                    'Create Contract': { bg: 'rgba(0, 201, 177, 0.12)', color: '#00C9B1' },
+                                    'Save Draft': { bg: 'rgba(148, 163, 184, 0.12)', color: '#94A3B8' },
+                                    'Contract Review': { bg: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6' },
+                                    'DOA Approval': { bg: 'rgba(245, 158, 11, 0.12)', color: '#F59E0B' },
+                                    'CAS Approval': { bg: 'rgba(139, 92, 246, 0.12)', color: '#8B5CF6' },
+                                    'Create User': { bg: 'rgba(16, 185, 129, 0.12)', color: '#10B981' },
+                                    'Delete User': { bg: 'rgba(239, 68, 68, 0.12)', color: '#EF4444' },
+                                };
+                                const badge = actionColors[log.action] || { bg: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' };
+                                return (
+                                    <tr key={idx}>
+                                        <td style={{ whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {new Date(log.timestamp).toLocaleString()}
+                                        </td>
+                                        <td>
+                                            <div style={{ fontWeight: '700', fontSize: '13px' }}>{log.user}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                <span style={{ background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    {log.role}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span style={{ background: badge.bg, color: badge.color, padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                                                {log.action}
+                                            </span>
+                                        </td>
+                                        <td style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '300px' }}>
+                                            {log.details}
+                                        </td>
+                                    </tr>
+                                );
+                            }) : (
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    <Clock size={24} style={{ opacity: 0.3, marginBottom: '8px', display: 'block', margin: '0 auto 8px' }} />
+                                    No activity logs yet. Actions like creating contracts, approvals, and user management will appear here.
+                                </td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const Dashboard = ({ user }) => {
+>>>>>>> Stashed changes
     const [activeKpi, setActiveKpi] = useState(null);
 
     const getDashboardHeader = () => {

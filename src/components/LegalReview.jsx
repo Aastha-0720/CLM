@@ -9,6 +9,11 @@ const CLAUSE_DEPT_MAP = {
 
 import styles from './ReviewPage.module.css';
 import { contractService } from '../services/contractService';
+<<<<<<< Updated upstream
+=======
+import { getAuthHeaders } from '../services/authHelper';
+import PdfAnnotationViewer from './PdfAnnotationViewer';
+>>>>>>> Stashed changes
 
 const LegalReview = ({ user }) => {
     const [selectedContract, setSelectedContract] = useState(null);
@@ -28,6 +33,11 @@ const LegalReview = ({ user }) => {
     const [escalateModal, setEscalateModal] = useState(null);
     const [escalateReason, setEscalateReason] = useState('');
     const [escalating, setEscalating] = useState(false);
+
+    // Self-Service Modal State
+    const [selfServiceAction, setSelfServiceAction] = useState(null); // { type: 'clo'|'return', contract }
+    const [selfServiceComment, setSelfServiceComment] = useState('');
+    const [verifyingAI, setVerifyingAI] = useState(false);
 
     const defaultClauses = [
         { id: 1, title: 'Liability & Indemnity', content: 'Liability is capped at the total contract value.', status: 'Pending' },
@@ -53,8 +63,8 @@ const LegalReview = ({ user }) => {
     const [aiLoading, setAiLoading] = useState(false);
     const [gateModal, setGateModal] = useState(null);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
         try {
             const data = await contractService.getAllContracts();
             
@@ -78,13 +88,26 @@ const LegalReview = ({ user }) => {
         } catch (e) {
             console.error('Failed to load contracts', e);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => {
         loadData();
-    }, []);
+        const interval = setInterval(() => loadData({ silent: true }), 5000);
+        const handleFocus = () => loadData({ silent: true });
+        const handleVisibility = () => {
+            if (!document.hidden) loadData({ silent: true });
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [reviewMode]);
 
     const isPrevApproved = (contract) => {
         if (!contract) return false;
@@ -115,6 +138,52 @@ const LegalReview = ({ user }) => {
             alert('Escalation failed');
         } finally {
             setEscalating(false);
+        }
+    };
+
+    const confirmSelfServiceAction = async () => {
+        if (!selfServiceComment.trim()) return;
+        
+        if (selfServiceAction.type === 'clo') {
+            setVerifyingAI(true);
+            setTimeout(async () => {
+                setVerifyingAI(false);
+                try {
+                    await fetch('/api/contracts/' + selfServiceAction.contract.id + '/send-to-clo', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            review_comment: selfServiceComment,
+                            reviewer_name: user?.name || 'Legal Counsel'
+                        })
+                    });
+                    setToast('✅ Pre-verified by AI & Sent to Chief Legal Officer');
+                    setTimeout(() => setToast(null), 3000);
+                    setSelfServiceAction(null);
+                    setSelfServiceComment('');
+                    await loadData();
+                } catch (e) {
+                    alert('Action failed');
+                }
+            }, 2000);
+        } else {
+            try {
+                await fetch('/api/contracts/' + selfServiceAction.contract.id + '/return-to-user', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        review_comment: selfServiceComment,
+                        reviewer_name: user?.name || 'Legal Counsel'
+                    })
+                });
+                setToast('Returned to User with requested changes');
+                setTimeout(() => setToast(null), 3000);
+                setSelfServiceAction(null);
+                setSelfServiceComment('');
+                await loadData();
+            } catch (e) {
+                alert('Action failed');
+            }
         }
     };
 
@@ -492,7 +561,11 @@ const openReview = async (contract) => {
                                 <div key={c.id} className={styles.contractCard}>
                                     <div className={styles.cardHeader}>
                                         <div className={styles.titleGroup}>
-                                            <h3>{c.title} {!isPrevApproved(c) && <span style={{marginLeft: '8px'}} title="Previous department approval pending">🔒</span>}</h3>
+                                            <h3>
+                                                {c.title} 
+                                                {c.source === 'self-service' && <span style={{marginLeft: '8px', fontSize: '11px', background: 'rgba(234, 179, 8, 0.2)', border: '1px solid #eab308', color: '#eab308', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold'}}>⚡ Self-Service</span>}
+                                                {!isPrevApproved(c) && <span style={{marginLeft: '8px'}} title="Previous department approval pending">🔒</span>}
+                                            </h3>
                                             <span className={styles.counterparty}>{c.company}</span>
                                         </div>
                                         <span className={`${styles.priorityBadge} ${styles[c.priority?.toLowerCase() || 'medium']}`}>
@@ -535,11 +608,23 @@ const openReview = async (contract) => {
                                             </div>
                                         )}
                                         <div className={styles.actions}>
-                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.viewBtn}`} onClick={() => openReview(c)}>
-                                                <span>🔍</span> View & Review
-                                            </button>
-                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(c.id, 'Approve')}>Approve</button>
-                                            <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(c.id, 'Reject')}>Reject</button>
+                                            {c.source === 'self-service' ? (
+                                                <>
+                                                    <button className={`${styles.btn} ${styles.viewBtn}`} onClick={() => openReview(c)}>
+                                                        <span>🔍</span> Review
+                                                    </button>
+                                                    <button className={`${styles.btn} ${styles.approveBtn}`} style={{ background: '#ca8a04', color: 'white' }} onClick={() => setSelfServiceAction({ type: 'clo', contract: c })}>Send to CLO</button>
+                                                    <button className={`${styles.btn} ${styles.rejectBtn}`} style={{ background: '#475569', color: 'white' }} onClick={() => setSelfServiceAction({ type: 'return', contract: c })}>Return to User</button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.viewBtn}`} onClick={() => openReview(c)}>
+                                                        <span>🔍</span> View & Review
+                                                    </button>
+                                                    <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(c.id, 'Approve')}>Approve</button>
+                                                    <button className={`${styles.btn} ${!isPrevApproved(c) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(c.id, 'Reject')}>Reject</button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -572,12 +657,64 @@ const openReview = async (contract) => {
                 </div>
             )}
 
+            {selfServiceAction && (
+                <div className={styles.splitModalOverlay} onClick={() => !verifyingAI && setSelfServiceAction(null)} style={{ zIndex: 1100 }}>
+                    <div className={styles.gateModal} onClick={(e) => e.stopPropagation()} style={{maxWidth: '450px'}}>
+                        <h3 className={styles.gateTitle}>{selfServiceAction.type === 'clo' ? 'Escalate to Chief Legal Officer' : 'Return to User'}</h3>
+                        <p className={styles.gateBody} style={{textAlign: 'left', marginBottom: '16px'}}>
+                            {selfServiceAction.type === 'clo' 
+                                ? 'Provide an initial review context before this contract is pre-verified by AI and forwarded to the CLO.'
+                                : 'Please explain what needs to be changed before you can approve this.'}
+                        </p>
+                        
+                        <textarea
+                            style={{width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: '#fff', fontSize: '14px', marginBottom: '20px'}}
+                            placeholder="Add your review comment here..."
+                            value={selfServiceComment}
+                            onChange={(e) => setSelfServiceComment(e.target.value)}
+                            disabled={verifyingAI}
+                        />
+                        
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button className={styles.btn} style={{ background: 'transparent', border: '1px solid var(--border-color)' }} onClick={() => setSelfServiceAction(null)} disabled={verifyingAI}>Cancel</button>
+                            <button 
+                                className={styles.btn} 
+                                style={{ background: selfServiceAction.type === 'clo' ? '#ca8a04' : '#475569', color: 'white' }} 
+                                onClick={confirmSelfServiceAction}
+                                disabled={!selfServiceComment.trim() || verifyingAI}
+                            >
+                                {verifyingAI ? 'AI Verification in progress...' : 'Submit'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Split Pane Review Modal */}
             {selectedContract && (
                 <div className={styles.splitModalOverlay}>
                     <div className={styles.splitModalContainer} style={{ display: 'flex' }}>
                         
+<<<<<<< Updated upstream
                         <div className={styles.reviewPane} style={{ flex: 1, borderLeft: 'none', maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}>
+=======
+                        <div className={styles.documentPane} style={{ padding: 0 }}>
+                            <div className={styles.documentHeader} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(4px)' }}>
+                                <span className={styles.documentTitle}>{selectedContract.title}</span>
+                            </div>
+                            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                <PdfAnnotationViewer 
+                                    contractId={selectedContract.id} 
+                                    user={user} 
+                                    readOnly={false}
+                                    onClose={() => setSelectedContract(null)}
+                                    // The Viewer provides its own close handle, but we can intercept it
+                                />
+                            </div>
+                        </div>
+
+                        <div className={styles.reviewPane} style={{ flex: 1.5, maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}>
+>>>>>>> Stashed changes
                             <div className={styles.reviewPaneHeader}>
                                 <div>
                                     <div className={styles.tabGroup}>
@@ -778,11 +915,20 @@ const openReview = async (contract) => {
                                         </div>
 
                                         <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(selectedContract.id, 'Approve')}>Approve Contract</button>
-                                                <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.btnRequest}`} onClick={() => handleAction(selectedContract.id, 'RequestChanges')}>Request Changes</button>
-                                            </div>
-                                            <button style={{ width: '100%', marginTop: '8px' }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(selectedContract.id, 'Reject')}>Reject / Change</button>
+                                            {selectedContract.source === 'self-service' ? (
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button style={{ flex: 1, background: '#ca8a04', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }} onClick={() => setSelfServiceAction({ type: 'clo', contract: selectedContract })}>Send to CLO</button>
+                                                    <button style={{ flex: 1, background: '#475569', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }} onClick={() => setSelfServiceAction({ type: 'return', contract: selectedContract })}>Return to User</button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.approveBtn}`} onClick={() => handleAction(selectedContract.id, 'Approve')}>Approve Contract</button>
+                                                        <button style={{ flex: 1 }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.btnRequest}`} onClick={() => handleAction(selectedContract.id, 'RequestChanges')}>Request Changes</button>
+                                                    </div>
+                                                    <button style={{ width: '100%', marginTop: '8px' }} className={`${styles.btn} ${!isPrevApproved(selectedContract) ? styles.btnGated : styles.rejectBtn}`} onClick={() => handleAction(selectedContract.id, 'Reject')}>Reject / Change</button>
+                                                </>
+                                            )}
                                         </div>
                                     </>
                                 ) : activeRightTab === 'Timeline' ? (

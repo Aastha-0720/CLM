@@ -1,0 +1,288 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.viewerContainer {
+    width: 95vw;
+    height: 95vh;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.toolbar {
+    height: 60px;
+    background: var(--bg-dark);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.toolbarLeft, .toolbarRight {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.btnActive {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.btnClose {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.btnClose:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.mainContent {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.pdfArea {
+    flex: 3;
+    overflow: auto;
+    background: #1e293b;
+    display: flex;
+    justify-content: center;
+    padding: 30px;
+    position: relative;
+}
+
+.docxPaper {
+    width: 100%;
+    max-width: 900px;
+    background: #fff;
+    color: #0f172a;
+    border-radius: 6px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    padding: 32px 44px;
+    min-height: calc(95vh - 220px);
+    overflow-y: auto;
+}
+
+.pdfWrapper {
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    background: white;
+}
+
+.canvas {
+    display: block;
+}
+
+.sidebar {
+    flex: 1;
+    min-width: 300px;
+    max-width: 400px;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebarHeader {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.commentsList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.commentCard {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    position: relative;
+    border-left: 3px solid transparent;
+}
+
+.commentHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.commentAuthor {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.commentRole {
+    color: var(--text-muted);
+    font-size: 11px;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+}
+
+.commentTime {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.commentText {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.pin {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    transform: translate(-12px, -24px); /* Center point at bottom */
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    transition: transform 0.2s;
+}
+
+.pin:hover {
+    transform: translate(-12px, -28px) scale(1.1);
+}
+
+.popover {
+    position: absolute;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    width: 250px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    z-index: 20;
+    transform: translate(-125px, -100%);
+    margin-top: -10px;
+}
+
+.popover::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.popoverTextarea {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: #fff;
+    padding: 8px;
+    font-size: 13px;
+    resize: none;
+    height: 60px;
+    margin-bottom: 8px;
+    font-family: inherit;
+}
+
+.popoverActions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.colorPicker {
+    display: flex;
+    gap: 4px;
+}
+
+.colorDot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.colorDotActive {
+    border-color: white;
+}
+
+.btnSubmit {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+}

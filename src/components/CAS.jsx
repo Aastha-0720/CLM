@@ -154,12 +154,18 @@ const CAS = ({ user }) => {
         if (prevStep.status !== 'Approved') return false;
 
         // Role mapping
-        const userRole = user?.role || 'Admin';
-        const isAdmin = userRole === 'Admin';
+        const userRole = user?.role || 'CLO';
+        const isCLO = userRole === 'CLO';
         
+<<<<<<< Updated upstream
         if (idx === 1) return isAdmin || userRole === 'Manager';
         if (idx === 2) return isAdmin || userRole === 'Legal';
         if (idx === 3) return isAdmin || userRole === 'CEO';
+=======
+        if (idx === 1) return isCLO || userRole === 'Manager';
+        if (idx === 2) return isCLO || userRole === 'Legal';
+        if (idx === 3) return isCLO || userRole === 'CEO' || userRole === 'Manager';
+>>>>>>> Stashed changes
         
         return false;
     };

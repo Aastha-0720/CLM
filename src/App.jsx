@@ -34,6 +34,7 @@ function App() {
 
     return (
         <div className="app-container">
+<<<<<<< Updated upstream
             {user ? (
                 <OutlookPanel
                     user={user}
@@ -44,6 +45,51 @@ function App() {
             ) : (
                 <Login onLogin={handleLogin} />
             )}
+=======
+            <Routes>
+                <Route path="/login" element={
+                    user ? <Navigate to={`/${user.role.toLowerCase()}/dashboard`} /> : <Login onLogin={handleLogin} />
+                } />
+                
+                {/* Role Specific Routes */}
+                <Route path="/user/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['User']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+                
+                <Route path="/admin/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['Admin']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/superadmin/*" element={
+                    <ProtectedRoute user={user} allowedRoles={['Superadmin']}>
+                        <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                    </ProtectedRoute>
+                } />
+
+                {/* Other Internal Roles */}
+                {['Legal', 'Finance', 'Compliance', 'Procurement', 'Sales', 'Manager', 'CEO', 'CLO'].map(role => (
+                    <Route key={role} path={`/${role.toLowerCase()}/*`} element={
+                        <ProtectedRoute user={user} allowedRoles={[role]}>
+                            <OutlookPanel user={user} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+                        </ProtectedRoute>
+                    } />
+                ))}
+
+                <Route path="/unauthorized" element={
+                    <AccessDenied onBack={() => navigate('/')} />
+                } />
+
+                {/* Default Redirects */}
+                <Route path="/" element={
+                    user ? <Navigate to={`/${user.role.toLowerCase()}/dashboard`} /> : <Navigate to="/login" />
+                } />
+                <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+>>>>>>> Stashed changes
         </div>
     );
 }

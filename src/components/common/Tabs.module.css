@@ -46,8 +46,8 @@
 }
 
 .tabContent {
-    padding: 1.5rem;
-    min-height: 400px;
+    padding: 0;
+    min-height: 580px;
 }
 
 @media (max-width: 768px) {

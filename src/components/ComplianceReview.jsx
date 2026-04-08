@@ -52,8 +52,8 @@ const ComplianceReview = ({ user }) => {
     const [aiLoading, setAiLoading] = useState(false);
     const [gateModal, setGateModal] = useState(null);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async ({ silent = false } = {}) => {
+        if (!silent) setLoading(true);
         try {
             const data = await contractService.getAllContracts();
             const filtered = data.filter(c =>
@@ -68,13 +68,26 @@ const ComplianceReview = ({ user }) => {
         } catch (e) {
             console.error('Failed to load contracts', e);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => {
         loadData();
-    }, []);
+        const interval = setInterval(() => loadData({ silent: true }), 5000);
+        const handleFocus = () => loadData({ silent: true });
+        const handleVisibility = () => {
+            if (!document.hidden) loadData({ silent: true });
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [reviewMode]);
 
     const isPrevApproved = (contract) => {
         if (!contract) return false;

@@ -1,0 +1,8 @@
+.cloCard {
+    border-top: 4px solid #ca8a04 !important;
+}
+
+.cloCard:hover {
+    box-shadow: 0 8px 24px rgba(202, 138, 4, 0.15) !important;
+    border-color: #eab308 !important;
+}

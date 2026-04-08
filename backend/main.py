@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import asyncio
 from fastapi import FastAPI, UploadFile, File, Form, Body, HTTPException, Query, BackgroundTasks, Header
 import base64
@@ -6,17 +7,38 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from io import StringIO
 from typing import List, Optional, Dict, Any, Union
+=======
+import logging
+import tempfile
+import zipfile
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Query, Form, Header, Depends
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
+>>>>>>> Stashed changes
 from bson import ObjectId
 from datetime import datetime, timedelta
 import pathlib
 import shutil
 import re
+<<<<<<< Updated upstream
 import textwrap
 
 from database import db
 from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId, AuditLog, ChangeRequest, ContractVersion, DOARule, DOARuleHistory
 import services
 from services import AIService
+=======
+from io import BytesIO
+import xml.etree.ElementTree as ET
+
+from database import db
+from models import Contract, CAS, DepartmentReviews, Document, ReviewComment, PyObjectId, WhitelistEntry, DigInkDocument, PdfFile, PdfAnnotation
+import services
+from services.pdf_service import generate_nda_pdf, generate_nda_docx
+import digink_service
+from routes.digink_routes import router as digink_router
+>>>>>>> Stashed changes
 from openai import OpenAI
 import os
 
@@ -24,6 +46,17 @@ UPLOAD_DIR = pathlib.Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+<<<<<<< Updated upstream
+=======
+# Allowed upload formats
+ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx'}
+ALLOWED_MIME_TYPES = {
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword'
+}
+
+>>>>>>> Stashed changes
 deepseek_client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY", ""),
     base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -428,6 +461,7 @@ app.add_middleware(
 )
 
 DEMO_USERS = [
+<<<<<<< Updated upstream
     {"name": "Admin User", "email": "admin@apeiro.com", "role": "Admin", "password": "Admin@2026", "status": "Active"},
     {"name": "Legal Counsel", "email": "legal@apeiro.com", "role": "Legal", "password": "Legal@2026", "status": "Active"},
     {"name": "Finance Controller", "email": "finance@apeiro.com", "role": "Finance", "password": "Finance@2026", "status": "Active"},
@@ -436,6 +470,19 @@ DEMO_USERS = [
     {"name": "Sales Manager", "email": "sales@apeiro.com", "role": "Sales", "password": "Sales@2026", "status": "Active"},
     {"name": "Operations Manager", "email": "manager@apeiro.com", "role": "Manager", "password": "Manager@2026", "status": "Active"},
     {"name": "Chief Executive Officer", "email": "ceo@apeiro.com", "role": "CEO", "password": "CEO@2026", "status": "Active"},
+=======
+    {"name": ADMIN_NAME, "email": ADMIN_EMAIL, "role": "Admin", "password": "Admin@2026", "status": "Active"},
+    {"name": "Legal Counsel", "email": f"legal@{WHITELISTED_DOMAIN}", "role": "Legal", "password": "Legal@2026", "status": "Active"},
+    {"name": "Finance Controller", "email": f"finance@{WHITELISTED_DOMAIN}", "role": "Finance", "password": "Finance@2026", "status": "Active"},
+    {"name": "Compliance Officer", "email": f"compliance@{WHITELISTED_DOMAIN}", "role": "Compliance", "password": "Comply@2026", "status": "Active"},
+    {"name": "Procurement Lead", "email": f"procurement@{WHITELISTED_DOMAIN}", "role": "Procurement", "password": "Procure@2026", "status": "Active"},
+    {"name": "Sales Manager", "email": f"sales@{WHITELISTED_DOMAIN}", "role": "Sales", "password": "Sales@2026", "status": "Active"},
+    {"name": "Operations Manager", "email": f"manager@{WHITELISTED_DOMAIN}", "role": "Manager", "password": "Manager@2026", "status": "Active"},
+    {"name": "Chief Executive Officer", "email": f"ceo@{WHITELISTED_DOMAIN}", "role": "CEO", "password": "CEO@2026", "status": "Active"},
+    {"name": "Chief Legal Officer", "email": f"clo@{WHITELISTED_DOMAIN}", "role": "CLO", "password": "CLO@2026", "status": "Active"},
+    {"name": USER_NAME, "email": USER_EMAIL, "role": "User", "password": "User@2026", "status": "Active"},
+    {"name": SUPERADMIN_NAME, "email": SUPERADMIN_EMAIL, "role": "Superadmin", "password": "Super@2026", "status": "Active"},
+>>>>>>> Stashed changes
 ]
 
 async def check_expiring_contracts():
@@ -567,6 +614,7 @@ async def get_dashboard_stats():
         "approvedThisMonth": approved_this_month
     }
 
+<<<<<<< Updated upstream
 @app.post("/api/upload")
 async def upload_contracts(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
@@ -627,6 +675,8 @@ async def upload_contracts(file: UploadFile = File(...)):
         
     return {"message": f"Successfully processed and created {inserted_count} contracts."}
 
+=======
+>>>>>>> Stashed changes
 @app.get("/api/contracts")
 async def get_contracts(stage: str = None, department: str = None):
     query = {}
@@ -762,6 +812,7 @@ def _build_rule_based_routing(
     }
 
 
+<<<<<<< Updated upstream
 async def calculate_review_stages(title: str, value: float, category: str, risk: str, clauses: list) -> list[str]:
     routing = _build_rule_based_routing(title, value, category, risk, clauses)
     workflow = list(routing["workflow"])
@@ -865,6 +916,18 @@ async def resolve_review_plan(
         "reasons": list(dict.fromkeys(reasons)),
         "applied_rules": list(dict.fromkeys(applied_rules)),
         "routing_decisions": routing_decisions,
+=======
+@app.get("/api/user/approvals")
+async def get_user_approvals(current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email")
+    user_role = current_user.get("role")
+    
+    # Only standard users or initiators typically track their own approvals here
+    # Optimization: Filter by submittedBy in MongoDB
+    query = {
+        "submittedBy": user_email,
+        "stage": {"$in": ["CAS", "CAS Generated", "DOA Approval"]}
+>>>>>>> Stashed changes
     }
 
 
@@ -1416,6 +1479,7 @@ async def _resolve_doa_configuration(contract: Dict[str, Any], thresholds: Dict[
         "source": "value-threshold",
     }
 
+<<<<<<< Updated upstream
 @app.post("/api/contracts/create")
 async def create_single_contract(data: dict = Body(...), authorization: Optional[str] = Header(None)):
     user_name = get_current_user(authorization)
@@ -1436,6 +1500,491 @@ async def create_single_contract(data: dict = Body(...), authorization: Optional
             clauses=clauses,
             business_unit=normalized_input["business_unit"],
             requested_mode=str(data.get("review_mode", "")).lower() or None,
+=======
+
+DOCUMENT_CATEGORIES = {
+    "Self-Service (AI Instant)": {"NDA", "Simple Service Agreement", "Data Processing Agreement (DPA)", "Memorandum of Understanding (MOU)"},
+    "Business Contracts (Legal Review)": {"Master Service Agreement (MSA)", "Statement of Work (SOW)", "Service Level Agreement (SLA)"},
+    "Vendor / Procurement": {"Vendor Agreement", "Supplier Contract"},
+    "Compliance / Legal": {"Data Privacy Agreement", "Compliance Agreement", "Regulatory Document"},
+    "Legal Assistance": {"Contract Review Request", "Legal Advice", "Draft Custom Contract", "Clause Review"},
+}
+
+
+def get_document_category(template_type: str) -> str:
+    if not template_type:
+        return "Legal Assistance"
+    for category, doc_types in DOCUMENT_CATEGORIES.items():
+        if template_type in doc_types:
+            return category
+    return "Legal Assistance"
+
+
+def infer_document_type(text: str, filename: str = "") -> str:
+    haystack = f"{filename} {text}".lower()
+    rules = [
+        ("Master Service Agreement (MSA)", ["master service agreement", "msa"]),
+        ("Statement of Work (SOW)", ["statement of work", "sow"]),
+        ("Service Level Agreement (SLA)", ["service level agreement", "sla"]),
+        ("Data Processing Agreement (DPA)", ["data processing agreement", "dpa"]),
+        ("Data Privacy Agreement", ["data privacy", "privacy agreement", "privacy addendum"]),
+        ("Compliance Agreement", ["compliance agreement", "compliance terms"]),
+        ("Regulatory Document", ["regulatory", "statutory compliance", "governing authority"]),
+        ("Vendor Agreement", ["vendor agreement", "vendor terms"]),
+        ("Supplier Contract", ["supplier", "procurement contract"]),
+        ("Simple Service Agreement", ["service agreement", "professional services"]),
+        ("Memorandum of Understanding (MOU)", ["memorandum of understanding", "mou"]),
+        ("NDA", ["non-disclosure", "non disclosure", "nda", "confidentiality agreement"]),
+    ]
+    for doc_type, keywords in rules:
+        if any(k in haystack for k in keywords):
+            return doc_type
+    return "Contract Review Request"
+
+
+def infer_clause_categories(text: str) -> List[str]:
+    haystack = text.lower()
+    category_keywords = {
+        "Payment": ["payment", "invoice", "fee", "pricing", "charges", "net 30", "net 45"],
+        "Legal": ["liability", "indemnity", "warranty", "termination", "dispute", "governing law"],
+        "Compliance": ["compliance", "regulatory", "gdpr", "privacy", "security", "audit"],
+    }
+    detected = []
+    for category, keywords in category_keywords.items():
+        if any(k in haystack for k in keywords):
+            detected.append(category)
+    return detected or ["Legal"]
+
+
+def extract_metadata_from_text(text: str) -> dict:
+    compact_text = " ".join(text.split())
+    party_candidates = []
+    party_patterns = [
+        r"between\s+(.{2,80}?)\s+and\s+(.{2,80}?)(?:\.|,|\s)",
+        r"this\s+agreement\s+is\s+made\s+between\s+(.{2,80}?)\s+and\s+(.{2,80}?)(?:\.|,|\s)",
+    ]
+    for pattern in party_patterns:
+        match = re.search(pattern, compact_text, flags=re.IGNORECASE)
+        if match:
+            party_candidates = [match.group(1).strip(), match.group(2).strip()]
+            break
+
+    date_matches = re.findall(
+        r"\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|"
+        r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{2,4})\b",
+        compact_text,
+        flags=re.IGNORECASE
+    )
+
+    return {
+        "party_names": party_candidates,
+        "dates": list(dict.fromkeys(date_matches))[:10]
+    }
+
+
+def extract_text_from_upload(filename: str, contents: bytes) -> str:
+    ext = pathlib.Path(filename or "").suffix.lower()
+    if ext == ".pdf":
+        import PyPDF2
+        reader = PyPDF2.PdfReader(BytesIO(contents))
+        return "\n".join([(page.extract_text() or "") for page in reader.pages]).strip()
+    if ext == ".docx":
+        import docx as _docx
+        doc_file = _docx.Document(BytesIO(contents))
+        return "\n".join([p.text for p in doc_file.paragraphs]).strip()
+    if ext == ".doc":
+        # Best-effort extraction for legacy DOC in this demo setup.
+        return contents.decode("latin-1", errors="ignore").strip()
+    return contents.decode("utf-8", errors="ignore").strip()
+
+
+def build_generated_text(template_type: str, company_name: str, description: str) -> str:
+    return (
+        f"{template_type}\n\n"
+        f"This document is generated for Apeiro Digital and {company_name}.\n\n"
+        f"Business Context:\n{description or 'Requested by business user for legal processing.'}\n\n"
+        "Key obligations, scope, payment, legal protections, and compliance controls are included "
+        "based on the selected template type."
+    )
+
+
+def build_clause_shell(clause_categories: List[str], description: str) -> List[dict]:
+    clause_templates = {
+        "Payment": "Fees, invoicing cadence, and payment timelines will follow mutually agreed commercial terms.",
+        "Legal": "Liability, indemnity, term, termination, and governing law will be defined by legal standards.",
+        "Compliance": "Data handling, audit rights, and applicable regulatory obligations must be met by both parties.",
+    }
+    clauses = []
+    for idx, category in enumerate(clause_categories, start=1):
+        clauses.append({
+            "id": f"c_{idx}",
+            "type": category,
+            "text": clause_templates.get(category, "Standard legal clause to be reviewed by Legal."),
+            "department": "Legal",
+            "status": "Pending",
+            "riskLevel": "Medium" if category in {"Legal", "Compliance"} else "Low"
+        })
+    if description:
+        clauses.append({
+            "id": f"c_{len(clauses) + 1}",
+            "type": "Business Context",
+            "text": description,
+            "department": "Legal",
+            "status": "Pending",
+            "riskLevel": "Low"
+        })
+    return clauses
+
+
+def _html_to_plain_text_for_docx(raw: str) -> str:
+    text = raw or ""
+    # Preserve paragraph and line boundaries before stripping tags.
+    text = re.sub(r'</(p|div|h1|h2|h3|li|blockquote)>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<li[^>]*>', '• ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _extract_paragraph_texts_from_html(raw: str) -> List[str]:
+    html = raw or ""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        nodes = soup.select(".docx p")
+        if not nodes:
+            nodes = soup.find_all(["p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "div"])
+        paragraph_texts = []
+        for node in nodes:
+            text = node.get_text("\n", strip=False).replace("\r", "")
+            paragraph_texts.append(text.replace("\u00a0", " "))
+        return paragraph_texts
+    except Exception:
+        # Best-effort fallback if parser fails
+        plain = _html_to_plain_text_for_docx(html)
+        return plain.split("\n")
+
+
+def _set_wt_text(wt: ET.Element, text: str) -> None:
+    xml_space_attr = "{http://www.w3.org/XML/1998/namespace}space"
+    wt.text = text
+    if text.startswith(" ") or text.endswith(" ") or "  " in text:
+        wt.set(xml_space_attr, "preserve")
+    elif xml_space_attr in wt.attrib:
+        del wt.attrib[xml_space_attr]
+
+
+def _patch_docx_ooxml_paragraphs(source_path: pathlib.Path, output_path: pathlib.Path, paragraph_texts: List[str]) -> bool:
+    if not source_path.exists():
+        return False
+    if not paragraph_texts:
+        return False
+
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    w_ns = ns["w"]
+
+    with tempfile.TemporaryDirectory(prefix="docx_patch_") as td:
+        temp_dir = pathlib.Path(td)
+        with zipfile.ZipFile(source_path, "r") as zf:
+            zf.extractall(temp_dir)
+
+        document_xml = temp_dir / "word" / "document.xml"
+        if not document_xml.exists():
+            return False
+
+        tree = ET.parse(document_xml)
+        root = tree.getroot()
+        paragraphs = root.findall(".//w:body//w:p", ns)
+        para_idx = 0
+
+        for p in paragraphs:
+            if para_idx >= len(paragraph_texts):
+                break
+            new_text = paragraph_texts[para_idx] or ""
+            para_idx += 1
+
+            text_nodes = p.findall(".//w:t", ns)
+            if text_nodes:
+                _set_wt_text(text_nodes[0], new_text)
+                for wt in text_nodes[1:]:
+                    _set_wt_text(wt, "")
+                continue
+
+            # Paragraph with no text runs: create one while preserving paragraph props.
+            run = ET.Element(f"{{{w_ns}}}r")
+            wt = ET.Element(f"{{{w_ns}}}t")
+            _set_wt_text(wt, new_text)
+            run.append(wt)
+            p.append(run)
+
+        # Append extra paragraphs if user added more block lines than existing OOXML paragraphs.
+        body = root.find(".//w:body", ns)
+        if body is not None and para_idx < len(paragraph_texts):
+            sect_pr = body.find("w:sectPr", ns)
+            insert_at = list(body).index(sect_pr) if sect_pr is not None else len(list(body))
+            for extra in paragraph_texts[para_idx:]:
+                p = ET.Element(f"{{{w_ns}}}p")
+                run = ET.Element(f"{{{w_ns}}}r")
+                wt = ET.Element(f"{{{w_ns}}}t")
+                _set_wt_text(wt, extra or "")
+                run.append(wt)
+                p.append(run)
+                body.insert(insert_at, p)
+                insert_at += 1
+
+        tree.write(document_xml, encoding="UTF-8", xml_declaration=True)
+
+        with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as out_zip:
+            for path in temp_dir.rglob("*"):
+                if path.is_file():
+                    out_zip.write(path, arcname=str(path.relative_to(temp_dir)))
+
+    return True
+
+
+async def _create_docx_version(
+    contract_id: str,
+    content: str,
+    user_label: str,
+    category_hint: str = "General",
+    base_docx_path: str = None,
+    rendered_html: Optional[str] = None,
+    paragraph_texts: Optional[List[str]] = None
+):
+    from docx import Document as WordDocument
+    from docx.shared import Pt
+
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    contract_dir = UPLOAD_DIR / contract_id
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    next_docx_version = int(contract.get("docx_version", 0)) + 1
+    new_docx_path = contract_dir / f"edited_v{next_docx_version}.docx"
+
+    plain_text = _html_to_plain_text_for_docx(content)
+    lines = plain_text.split('\n')
+
+    # Prefer updating an existing DOCX skeleton to preserve alignment/layout.
+    source_path = base_docx_path or contract.get("latest_docx_path")
+    docx = None
+    if source_path:
+        try:
+            source_file = pathlib.Path(source_path)
+            if source_file.exists():
+                docx = WordDocument(str(source_file))
+        except Exception:
+            docx = None
+
+    # Phase 2: strict OOXML paragraph patching to preserve legal numbering, indentation and styles.
+    if source_path and paragraph_texts:
+        try:
+            source_file = pathlib.Path(source_path)
+            if _patch_docx_ooxml_paragraphs(source_file, new_docx_path, paragraph_texts):
+                await db.contracts.update_one(
+                    {"_id": ObjectId(contract_id)},
+                    {"$set": {
+                        "latest_docx_path": str(new_docx_path),
+                        "docx_version": next_docx_version,
+                    }}
+                )
+
+                last_doc = await db.documents.find_one({"contractId": contract_id}, sort=[("version", -1)])
+                version = (last_doc["version"] + 1) if last_doc else 1
+                new_doc_record = Document(
+                    contractId=contract_id,
+                    fileName=new_docx_path.name,
+                    fileType="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    fileSize=new_docx_path.stat().st_size,
+                    storagePath=str(new_docx_path),
+                    version=version,
+                    uploadedBy=user_label,
+                    category=last_doc["category"] if last_doc else category_hint,
+                    renderedHtml=rendered_html,
+                    renderMode="html" if rendered_html else "docx-preview"
+                )
+                inserted = await db.documents.insert_one(new_doc_record.model_dump(by_alias=True, exclude_none=True))
+                return {
+                    "document_id": str(inserted.inserted_id),
+                    "path": str(new_docx_path),
+                    "version": next_docx_version,
+                }
+        except Exception as exc:
+            logger.warning(f"OOXML patch path failed for {contract_id}: {exc}. Falling back to python-docx update.")
+
+    if docx is None:
+        docx = WordDocument()
+        normal_style = docx.styles['Normal']
+        normal_style.font.name = 'Calibri'
+        normal_style.font.size = Pt(11)
+
+    editable_paragraphs = list(docx.paragraphs)
+    for table in docx.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                editable_paragraphs.extend(cell.paragraphs)
+
+    if editable_paragraphs:
+        # Update paragraph text while keeping each paragraph's style/alignment.
+        for idx, para in enumerate(editable_paragraphs):
+            if idx >= len(lines):
+                # Preserve untouched template paragraphs to avoid layout collapse.
+                continue
+            new_line = lines[idx]
+            if para.runs:
+                para.runs[0].text = new_line
+                for run in para.runs[1:]:
+                    run.text = ""
+            else:
+                para.add_run(new_line)
+        # If content has more lines than available paragraphs, append new paragraphs.
+        if len(lines) > len(editable_paragraphs):
+            for extra in lines[len(editable_paragraphs):]:
+                docx.add_paragraph(extra)
+    else:
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line:
+                docx.add_paragraph("")
+                continue
+            if line.startswith('### '):
+                p = docx.add_paragraph(line[4:].strip())
+                p.style = docx.styles['Heading 3']
+            elif line.startswith('## '):
+                p = docx.add_paragraph(line[3:].strip())
+                p.style = docx.styles['Heading 2']
+            elif line.startswith('# '):
+                p = docx.add_paragraph(line[2:].strip())
+                p.style = docx.styles['Heading 1']
+            elif line.isupper() and len(line) < 120:
+                p = docx.add_paragraph(line)
+                if p.runs:
+                    p.runs[0].bold = True
+            else:
+                docx.add_paragraph(line)
+
+    docx.save(str(new_docx_path))
+
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "latest_docx_path": str(new_docx_path),
+            "docx_version": next_docx_version,
+        }}
+    )
+
+    last_doc = await db.documents.find_one({"contractId": contract_id}, sort=[("version", -1)])
+    version = (last_doc["version"] + 1) if last_doc else 1
+    new_doc_record = Document(
+        contractId=contract_id,
+        fileName=new_docx_path.name,
+        fileType="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileSize=new_docx_path.stat().st_size,
+        storagePath=str(new_docx_path),
+        version=version,
+        uploadedBy=user_label,
+        category=last_doc["category"] if last_doc else category_hint,
+        renderedHtml=rendered_html,
+        renderMode="html" if rendered_html else "docx-preview"
+    )
+    inserted = await db.documents.insert_one(new_doc_record.model_dump(by_alias=True, exclude_none=True))
+    return {
+        "document_id": str(inserted.inserted_id),
+        "path": str(new_docx_path),
+        "version": next_docx_version,
+    }
+
+@app.post("/api/self-service/request")
+async def create_self_service_request(data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email", data.get("submittedBy"))
+    template_type = data.get("template_type", "NDA")
+    document_category = data.get("document_category") or get_document_category(template_type)
+    request_mode = data.get("request_mode", "generated")
+    is_self_service_category = document_category == "Self-Service (AI Instant)"
+    
+    contract = Contract(
+        title=data.get("title", f"{data.get('company', 'Unknown')} - {template_type}"),
+        company=data.get("company", "Unknown"),
+        department=data.get("department", "Sales"),
+        value=float(data.get("value", 0)) if data.get("value") else 0.0,
+        stage="Under Review",
+        status="Pending",
+        submittedBy=user_email,
+        required_reviewers=["Legal"]
+    )
+    
+    contract_dump = contract.model_dump(by_alias=True, exclude_none=True)
+    contract_dump["source"] = "self-service"
+    contract_dump["template_type"] = template_type
+    contract_dump["document_category"] = document_category
+    contract_dump["request_mode"] = request_mode
+    contract_dump["route"] = "ai-instant" if is_self_service_category else "legal-counsel"
+    
+    company_name = data.get("company", "Unknown")
+    description = data.get("description", "")
+    contract_dump["description"] = description
+
+    clause_categories = infer_clause_categories(f"{template_type} {description}")
+    contract_dump["extractedText"] = build_generated_text(template_type, company_name, description)
+    contract_dump["clauses"] = build_clause_shell(clause_categories, description)
+    contract_dump["ai_classification_result"] = {
+        "document_type": template_type,
+        "document_category": document_category,
+        "clause_categories": clause_categories,
+        "routing_decision": "AI Template Generation" if is_self_service_category else "Legal Counsel Review",
+        "confidence": "high"
+    }
+    
+    # Store expiry date as empty string if not provided
+    contract_dump["expiry_date"] = data.get("expiry_date", "")
+    
+    result = await db.contracts.insert_one(contract_dump)
+    contract_id = str(result.inserted_id)
+
+    if is_self_service_category and template_type == "NDA":
+        # Generate NDA DOCX from official template and store as primary editable document.
+        nda_docx_path = generate_nda_docx(contract_id, company_name, description, contract_dump["expiry_date"])
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {
+                "latest_docx_path": nda_docx_path,
+                "docx_version": 1
+            }}
+        )
+        nda_docx_file = pathlib.Path(nda_docx_path)
+        new_doc_record = Document(
+            contractId=contract_id,
+            fileName=nda_docx_file.name,
+            fileType="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            fileSize=nda_docx_file.stat().st_size if nda_docx_file.exists() else 0,
+            storagePath=nda_docx_path,
+            version=1,
+            uploadedBy=user_email,
+            category="Original"
+        )
+        await db.documents.insert_one(new_doc_record.model_dump(by_alias=True, exclude_none=True))
+
+        # Keep NDA PDF generation as fallback preview.
+        pdf_path = generate_nda_pdf(contract_id, company_name, description, contract_dump["expiry_date"])
+        pdf_file = PdfFile(
+            contractId=contract_id,
+            template_type=contract_dump["template_type"],
+            file_path=pdf_path,
+            generated_by=user_email,
+            version=1
+        )
+        await db.pdf_files.insert_one(pdf_file.model_dump(by_alias=True, exclude_none=True))
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {
+                "pdf_path": pdf_path,
+                "pdf_generated": True,
+                "pdf_version": 1
+            }}
+>>>>>>> Stashed changes
         )
         final_reviewers = review_plan["workflow"]
         review_mode = review_plan["review_mode"]
@@ -1960,6 +2509,443 @@ async def send_contract(data: dict = Body(...), authorization: Optional[str] = H
         print(f"Send contract failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+<<<<<<< Updated upstream
+=======
+    # Notify Legal department
+    await add_notification(
+        for_role="Legal",
+        message=f"New {request_mode.title()} request '{contract.title}' for {contract.company} requires review.",
+        type="assignment",
+        contract_id=contract_id,
+        contract_title=contract.title,
+        action="Go to Legal Review"
+    )
+    
+    await log_action("Create Self-Service Contract", user_email, current_user.get("role", "User"),
+        f"{request_mode.title()} request '{contract.title}' created under category '{document_category}'.",
+        contract_id)
+    
+    return {
+        "message": "Self-service request submitted successfully",
+        "id": contract_id
+    }
+>>>>>>> Stashed changes
+
+
+@app.post("/api/self-service/upload-request")
+async def create_upload_request(
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    company: str = Form(""),
+    department: str = Form("Sales"),
+    value: str = Form("0"),
+    description: str = Form(""),
+    submittedBy: str = Form(""),
+    current_user: dict = Depends(get_current_user)
+):
+    user_email = current_user.get("email", submittedBy) or submittedBy or "Unknown"
+    file_name = file.filename or "uploaded_document"
+    file_ext = pathlib.Path(file_name).suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type '{file_ext}'. Only PDF, DOC, and DOCX files are allowed."
+        )
+
+    contents = await file.read()
+    size_mb = len(contents) / (1024 * 1024)
+    if size_mb > MAX_FILE_SIZE_MB:
+        raise HTTPException(status_code=413, detail=f"File too large. Max {MAX_FILE_SIZE_MB}MB allowed.")
+
+    extracted_text = extract_text_from_upload(file_name, contents)
+    inferred_document_type = infer_document_type(extracted_text, file_name)
+    inferred_category = get_document_category(inferred_document_type)
+    clause_categories = infer_clause_categories(extracted_text)
+    extracted_metadata = extract_metadata_from_text(extracted_text)
+    inferred_company = company or (extracted_metadata.get("party_names", ["Unknown", "Unknown"])[-1] if extracted_metadata.get("party_names") else "Unknown")
+
+    contract = Contract(
+        title=title or f"{inferred_company} - {inferred_document_type}",
+        company=inferred_company or "Unknown",
+        department=department or "Sales",
+        value=float(value) if value else 0.0,
+        stage="Under Review",
+        status="Pending",
+        submittedBy=user_email,
+        required_reviewers=["Legal"]
+    )
+    contract_dump = contract.model_dump(by_alias=True, exclude_none=True)
+    contract_dump["source"] = "self-service"
+    contract_dump["request_mode"] = "uploaded"
+    contract_dump["template_type"] = inferred_document_type
+    contract_dump["document_category"] = inferred_category
+    contract_dump["route"] = "legal-counsel"
+    contract_dump["description"] = description or "User uploaded an external document for legal review."
+    contract_dump["extractedText"] = extracted_text[:20000] if extracted_text else ""
+    contract_dump["clauses"] = build_clause_shell(clause_categories, contract_dump["description"])
+    contract_dump["ai_classification_result"] = {
+        "document_type": inferred_document_type,
+        "document_category": inferred_category,
+        "clause_categories": clause_categories,
+        "metadata": extracted_metadata,
+        "routing_decision": "Legal Counsel Review",
+        "confidence": "medium"
+    }
+
+    insert_result = await db.contracts.insert_one(contract_dump)
+    contract_id = str(insert_result.inserted_id)
+
+    # Save uploaded file as the first contract document version.
+    contract_dir = UPLOAD_DIR / contract_id
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    storage_name = f"v1_{file_name}"
+    file_path = contract_dir / storage_name
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    mime_type = file.content_type
+    if not mime_type or mime_type == "application/octet-stream":
+        if file_ext == ".pdf":
+            mime_type = "application/pdf"
+        elif file_ext == ".docx":
+            mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_ext == ".doc":
+            mime_type = "application/msword"
+        else:
+            mime_type = "application/octet-stream"
+
+    doc = Document(
+        contractId=contract_id,
+        fileName=file_name,
+        fileType=mime_type,
+        fileSize=len(contents),
+        storagePath=str(file_path),
+        version=1,
+        uploadedBy=user_email,
+        category="Original",
+        tags=["self-service", "uploaded", inferred_document_type]
+    )
+    await db.documents.insert_one(doc.model_dump(by_alias=True, exclude_none=True))
+
+    await add_notification(
+        for_role="Legal",
+        message=f"New uploaded request '{contract.title}' for {contract.company} requires review.",
+        type="assignment",
+        contract_id=contract_id,
+        contract_title=contract.title,
+        action="Go to Legal Review"
+    )
+    await log_action(
+        "Create Uploaded Contract Request",
+        user_email,
+        current_user.get("role", "User"),
+        f"Uploaded contract '{contract.title}' classified as '{inferred_document_type}'.",
+        contract_id
+    )
+
+    return {
+        "message": "Uploaded request submitted successfully",
+        "id": contract_id,
+        "request_mode": "uploaded",
+        "document_category": inferred_category,
+        "ai_classification_result": contract_dump["ai_classification_result"]
+    }
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PDF & Annotations API
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.get("/api/contracts/{contract_id}/pdf")
+async def get_contract_pdf(contract_id: str):
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract or not contract.get("pdf_path"):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    path = Path(contract["pdf_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="PDF file missing")
+    return FileResponse(path, media_type="application/pdf", filename=f"{contract.get('title')}.pdf")
+
+@app.get("/api/contracts/{contract_id}/pdf-annotations")
+async def get_pdf_annotations(contract_id: str, doc_type: str = Query("pdf"), document_id: Optional[str] = Query(None)):
+    if doc_type == "pdf":
+        query = {
+            "contractId": contract_id,
+            "$or": [{"docType": "pdf"}, {"docType": {"$exists": False}}]
+        }
+    else:
+        query = {"contractId": contract_id, "docType": doc_type}
+    if doc_type == "docx" and document_id:
+        query["targetDocumentId"] = document_id
+    cursor = db.pdf_annotations.find(query).sort("createdAt", 1)
+    annotations = await cursor.to_list(length=1000)
+    for a in annotations:
+        a["_id"] = str(a["_id"])
+    return annotations
+
+@app.post("/api/contracts/{contract_id}/pdf-annotations")
+async def add_pdf_annotation(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    doc_type = data.get("doc_type", "pdf")
+    ann = PdfAnnotation(
+        contractId=contract_id,
+        page=data.get("page", 1),
+        x=data.get("x", 0.0),
+        y=data.get("y", 0.0),
+        width=data.get("width", 0.0),
+        height=data.get("height", 0.0),
+        text=data.get("text", ""),
+        author=data.get("author", current_user.get("email", "Unknown")),
+        role=data.get("role", current_user.get("role", "User")),
+        color=data.get("color", "#f59e0b"),
+        docType=doc_type,
+        targetDocumentId=data.get("document_id")
+    )
+    result = await db.pdf_annotations.insert_one(ann.model_dump(by_alias=True, exclude_none=True))
+    new_doc = await db.pdf_annotations.find_one({"_id": result.inserted_id})
+    if new_doc:
+        new_doc["_id"] = str(new_doc["_id"])
+    return new_doc
+
+@app.delete("/api/contracts/{contract_id}/pdf-annotations/{annotation_id}")
+async def delete_pdf_annotation(contract_id: str, annotation_id: str, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(annotation_id):
+        raise HTTPException(status_code=400, detail="Invalid annotation ID")
+    result = await db.pdf_annotations.delete_one({
+        "_id": ObjectId(annotation_id),
+        "contractId": contract_id
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Annotation not found")
+    return {"message": "Annotation deleted"}
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Self-Service Actions API
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.post("/api/contracts/{contract_id}/send-to-clo")
+async def send_to_clo(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    comment = data.get("review_comment", "")
+    reviewer_name = data.get("reviewer_name", "Legal Counsel")
+    
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "stage": "CLO Review",
+            "reviews.Legal.status": "Sent to CLO",
+            "reviews.Legal.comments": comment,
+            "reviews.Legal.reviewedBy": reviewer_name,
+            "reviews.Legal.reviewedAt": datetime.utcnow().isoformat()
+        }}
+    )
+    
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    
+    await add_notification(
+        for_role="CLO",
+        message=f"Contract '{contract.get('title')}' sent by Legal for CLO approval.",
+        type="assignment",
+        contract_id=contract_id,
+        contract_title=contract.get("title"),
+        action="Go to CLO Review"
+    )
+    
+    await log_action("Escalate to CLO", reviewer_name, "Legal", f"Sent to CLO with comment: {comment[:50]}", contract_id)
+    return {"message": "Sent to CLO"}
+
+@app.post("/api/contracts/{contract_id}/return-to-user")
+async def return_to_user(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    comment = data.get("review_comment", "")
+    reviewer_name = data.get("reviewer_name", "Legal Counsel")
+    
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "stage": "Draft",
+            "status": "Changes Requested",
+            "reviews.Legal.status": "Changes Requested",
+            "reviews.Legal.comments": comment,
+            "reviews.Legal.reviewedBy": reviewer_name,
+            "reviews.Legal.reviewedAt": datetime.utcnow().isoformat()
+        }}
+    )
+    
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    
+    await add_notification(
+        for_user=contract.get("submittedBy"),
+        message=f"Legal requested changes for '{contract.get('title')}': {comment[:50]}",
+        type="alert",
+        contract_id=contract_id,
+        contract_title=contract.get("title"),
+        action="View Contract"
+    )
+    
+    await log_action("Return to User", reviewer_name, "Legal", f"Returned to user with comment: {comment[:50]}", contract_id)
+    return {"message": "Returned to user"}
+
+@app.post("/api/contracts/{contract_id}/clo-decision")
+async def clo_decision(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    decision = data.get("decision")
+    comment = data.get("comment", "")
+    clo_name = data.get("clo_name", "Chief Legal Officer")
+    
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+        
+    set_fields = {
+        "reviews.CLO.status": decision.capitalize(),
+        "reviews.CLO.comments": comment,
+        "reviews.CLO.reviewedBy": clo_name,
+        "reviews.CLO.reviewedAt": datetime.utcnow().isoformat()
+    }
+    
+    if decision == "approve" or decision == "send-to-cas":
+        set_fields["stage"] = "CAS Generated"
+        set_fields["status"] = "Approved"
+        await add_notification(
+            for_role="CLO",
+            message=f"CLO approved '{contract.get('title')}'. CAS record created and ready for review.",
+            type="assignment",
+            contract_id=contract_id,
+            contract_title=contract.get("title"),
+            action="Go to CAS"
+        )
+        # Also notify the contract submitter
+        await add_notification(
+            for_user=contract.get("submittedBy"),
+            message=f"Your contract '{contract.get('title')}' has been approved by the CLO and entered CAS.",
+            type="approval",
+            contract_id=contract_id,
+            contract_title=contract.get("title"),
+            action="View Contract"
+        )
+        log_msg = f"CLO Approved with comment: {comment[:50]}"
+        # Create CAS document so it shows up in CLO CAS panel
+        cas_doc = services.generate_cas_document(
+            contract_id=str(contract_id),
+            contract_title=contract.get("title", ""),
+            value=contract.get("value", 0),
+            initiator=contract.get("submittedBy", "Admin")
+        )
+        await db.cas.insert_one(cas_doc.model_dump(by_alias=True, exclude_none=True))
+    elif decision == "revise":
+        set_fields["stage"] = "Under Review"
+        set_fields["reviews.Legal.status"] = "Changes Requested"
+        await add_notification(
+            for_role="Legal",
+            message=f"CLO requested revisions for '{contract.get('title')}': {comment[:80]}",
+            type="alert",
+            contract_id=contract_id,
+            contract_title=contract.get("title"),
+            action="Go to Review"
+        )
+        log_msg = f"CLO Requested Revision: {comment[:50]}"
+    else:
+        set_fields["stage"] = "Rejected"
+        set_fields["status"] = "Rejected"
+        await add_notification(
+            for_user=contract.get("submittedBy"),
+            message=f"Contract '{contract.get('title')}' was rejected by CLO.",
+            type="alert",
+            contract_id=contract_id,
+            contract_title=contract.get("title"),
+            action="View Details"
+        )
+        log_msg = f"CLO Rejected: {comment[:50]}"
+        
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": set_fields}
+    )
+    
+    await log_action("CLO Decision", clo_name, "CLO", log_msg, contract_id)
+    return {"message": f"CLO decision '{decision}' processed"}
+
+@app.post("/api/contracts/{contract_id}/return-to-legal")
+async def return_to_legal(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    comment = data.get("review_comment", "")
+    reviewer_name = current_user.get("name", "Chief Legal Officer")
+    
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "stage": "Under Review",
+            "status": "Changes Requested",
+            "reviews.CLO.status": "Returned to Legal",
+            "reviews.CLO.comments": comment,
+            "reviews.CLO.reviewedBy": reviewer_name,
+            "reviews.CLO.reviewedAt": datetime.utcnow().isoformat()
+        }}
+    )
+    
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    
+    await add_notification(
+        for_role="Legal",
+        message=f"CLO returned '{contract.get('title')}' for revision: {comment[:50]}",
+        type="alert",
+        contract_id=contract_id,
+        contract_title=contract.get("title"),
+        action="Go to Legal Review"
+    )
+    
+    await log_action("Return to Legal", reviewer_name, "CLO", f"Returned to Legal with comment: {comment[:50]}", contract_id)
+    return {"message": "Returned to Legal"}
+
+@app.post("/api/contracts/{contract_id}/resubmit")
+async def resubmit_contract(contract_id: str, data: dict = Body({}), current_user: dict = Depends(get_current_user)):
+    user_email = current_user.get("email", "UnknownUser")
+    
+    # ─── Clear All PDF Annotations ─── 
+    # When user resubmits, we delete ALL annotations so Legal/CLO get a clean document
+    await db.pdf_annotations.delete_many({"contractId": contract_id})
+    
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "stage": "Under Review",
+            "status": "Pending",
+        }}
+    )
+    
+    # Clear the Legal review status so it re-appears in Legal queue
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "reviews.Legal.status": "Pending",
+        }}
+    )
+    
+    # Increment pdf_version to track re-review cycle
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$inc": {"pdf_version": 1}}
+    )
+
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    
+    await add_notification(
+        for_role="Legal",
+        message=f"User resubmitted '{contract.get('title')}' with changes. Document is now clean for re-review.",
+        type="assignment",
+        contract_id=contract_id,
+        contract_title=contract.get("title"),
+        action="Go to Legal Review"
+    )
+    
+    await log_action("Resubmit Contract", user_email, current_user.get("role", "User"), 
+                     f"Resubmitted contract (annotations cleared, pdf_version incremented)", contract_id)
+    return {"message": "Contract resubmitted successfully", "annotations_cleared": True}
+
+
+@app.delete("/api/contracts/{contract_id}/pdf-annotations/clear-all")
+async def clear_all_annotations(contract_id: str, current_user: dict = Depends(get_current_user)):
+    """Clear all PDF annotations for a contract (called on resubmit)."""
+    result = await db.pdf_annotations.delete_many({"contractId": contract_id})
+    await log_action("Clear Annotations", current_user.get("email", "Unknown"), 
+                     current_user.get("role", "User"), 
+                     f"Cleared {result.deleted_count} annotations", contract_id)
+    return {"message": f"Cleared {result.deleted_count} annotations"}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Comments & Reviews API
@@ -2589,6 +3575,7 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
             
         return {"message": f"Contract rejected by {department}"}
 
+<<<<<<< Updated upstream
     if status == "Changes Requested":
         open_change_requests = await db.change_requests.find({
             "contractId": contract_id,
@@ -2645,6 +3632,29 @@ async def submit_review(contract_id: str, department: str = Body(...), status: s
                     metadata={"change_request_ids": change_request_ids}
                 )
             ],
+=======
+    # ─── Notification insertion for next department ───
+    notification_map = {
+        "Legal": {
+            "for_role": "Finance",
+            "message": "Legal has approved '{title}'. You can now review it.",
+            "action": "Go to Finance Review"
+        },
+        "Finance": {
+            "for_role": "Compliance",
+            "message": "Finance has approved '{title}'. You can now review it.",
+            "action": "Go to Compliance Review"
+        },
+        "Compliance": {
+            "for_role": "Procurement",
+            "message": "Compliance has approved '{title}'. You can now review it.",
+            "action": "Go to Procurement Review"
+        },
+        "Procurement": {
+            "for_role": "CLO",
+            "message": "All reviews complete for {title}. CAS generated!",
+            "action": "Go to CAS"
+>>>>>>> Stashed changes
         }
         await db.contracts.update_one(
             {"_id": ObjectId(contract_id)},
@@ -2994,6 +4004,257 @@ async def delete_cas_record(cas_id: str):
         raise HTTPException(404, "CAS not found")
     return {"message": "CAS deleted successfully"}
 
+<<<<<<< Updated upstream
+=======
+@app.get("/api/contracts/{contract_id}/editor-content")
+async def get_editor_content(contract_id: str):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    # 1. Prefer editable text extracted from the latest DOCX to preserve paragraph boundaries.
+    latest_docx_path = contract.get("latest_docx_path")
+    if latest_docx_path:
+        try:
+            from docx import Document as WordDocument
+            source = pathlib.Path(latest_docx_path)
+            if source.exists():
+                doc_obj = WordDocument(str(source))
+                lines = [p.text for p in doc_obj.paragraphs]
+                for table in doc_obj.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            for p in cell.paragraphs:
+                                lines.append(p.text)
+                extracted = "\n".join(lines).strip()
+                if len(extracted) > 20:
+                    return {"content": extracted}
+        except Exception:
+            pass
+
+    # 2. Return previously saved draft if it exists and is substantive
+    if contract.get("draftText") and len(contract["draftText"].strip()) > 20:
+        return {"content": contract["draftText"]}
+
+    # 3. Extract text from the contract's own PDF file (self-service NDA path)
+    pdf_path_str = contract.get("pdf_path")
+    if pdf_path_str:
+        try:
+            pdf_path = pathlib.Path(pdf_path_str)
+            if pdf_path.exists():
+                import PyPDF2
+                from io import BytesIO
+                with open(pdf_path, "rb") as f:
+                    raw = f.read()
+                reader = PyPDF2.PdfReader(BytesIO(raw))
+                extracted = ""
+                for page in reader.pages:
+                    extracted += (page.extract_text() or "") + "\n"
+                extracted = extracted.strip()
+                if len(extracted) > 30:
+                    return {"content": extracted}
+        except Exception as exc:
+            pass  # fall through to next option
+
+    # 4. Use extractedText field stored during contract generation
+    extracted_text = (contract.get("extractedText") or "").strip()
+    if len(extracted_text) > 30:
+        return {"content": extracted_text}
+
+    # 5. Try the uploaded documents collection (manually uploaded contracts)
+    doc = await db.documents.find_one({"contractId": contract_id}, sort=[("uploadedAt", -1)])
+    if doc:
+        file_path = pathlib.Path(doc["storagePath"])
+        if file_path.exists():
+            try:
+                with open(file_path, "rb") as f:
+                    contents = f.read()
+                text = ""
+                if doc["fileName"].endswith('.pdf'):
+                    import PyPDF2
+                    from io import BytesIO
+                    pdf_reader = PyPDF2.PdfReader(BytesIO(contents))
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() or ""
+                elif doc["fileName"].endswith('.docx'):
+                    import docx as _docx
+                    from io import BytesIO
+                    doc_file = _docx.Document(BytesIO(contents))
+                    text = "\n".join([p.text for p in doc_file.paragraphs])
+                else:
+                    text = contents.decode('utf-8', errors='ignore')
+                if text.strip() and len(text.strip()) > 30:
+                    return {"content": text.strip()}
+            except Exception:
+                pass
+
+    # 6. Fallback: build readable text from contract metadata + clauses
+    title = contract.get("title", "Contract")
+    company = contract.get("company", "Counterparty")
+    description = contract.get("description", "")
+    clauses = contract.get("clauses", [])
+    lines = [
+        title.upper(),
+        "",
+        f"Between: Apeiro Digital Ltd (\"Company\")",
+        f"And:     {company}",
+        "",
+    ]
+    if description:
+        lines += [f"Purpose: {description}", ""]
+    if clauses:
+        lines += ["CLAUSES", ""]
+        for c in clauses:
+            lines.append(f"{c.get('type', 'Clause')}")
+            lines.append(c.get('text', ''))
+            lines.append("")
+    else:
+        lines += [
+            "TERMS AND CONDITIONS",
+            "",
+            "Both parties agree to hold all confidential information in strict confidence.",
+            "",
+            "This agreement shall remain in effect for one (1) year from the Effective Date.",
+        ]
+    return {"content": "\n".join(lines)}
+
+@app.post("/api/contracts/{contract_id}/save-editor-content")
+async def save_editor_content(contract_id: str, data: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+
+    content = data.get("content", "")
+    paragraph_texts = data.get("paragraph_texts")
+    base_document_id = data.get("base_document_id")
+    normalized_content = (content or "").strip()
+    looks_like_html = bool(normalized_content and re.search(r"<[a-zA-Z][^>]*>", normalized_content))
+    plain_text_fallback = _html_to_plain_text_for_docx(content) if looks_like_html else (content or "")
+    if looks_like_html and (not isinstance(paragraph_texts, list) or not paragraph_texts):
+        paragraph_texts = _extract_paragraph_texts_from_html(content)
+    if isinstance(paragraph_texts, list):
+        paragraph_texts = [str(t or "") for t in paragraph_texts]
+    else:
+        paragraph_texts = None
+
+    base_docx_path = None
+    if base_document_id and ObjectId.is_valid(base_document_id):
+        base_doc = await db.documents.find_one({"_id": ObjectId(base_document_id)})
+        if base_doc and str(base_doc.get("fileName", "")).lower().endswith(".docx"):
+            base_docx_path = base_doc.get("storagePath")
+    user_label = current_user.get("email") or data.get("user", "Admin")
+
+    # ── 1. Persist the edited text as draftText ───────────────────────────────
+    await db.contracts.update_one(
+        {"_id": ObjectId(contract_id)},
+        {"$set": {
+            "draftText": plain_text_fallback,
+            "draftHtml": content if looks_like_html else None
+        }}
+    )
+
+    try:
+        docx_info = await _create_docx_version(
+            contract_id,
+            plain_text_fallback,
+            user_label,
+            base_docx_path=base_docx_path,
+            rendered_html=content if looks_like_html else None,
+            paragraph_texts=paragraph_texts
+        )
+        docx_generated = True
+
+    except Exception as e:
+        logger.error(f"DOCX generation failed for {contract_id}: {e}")
+        docx_generated = False
+        docx_info = None
+
+    await log_action(
+        "Edit Contract", user_label, current_user.get("role", "User"),
+        f"Saved edited content{' + generated DOCX' if docx_generated else ' (DOCX generation failed)'}",
+        contract_id
+    )
+
+    if docx_generated:
+        return {
+            "message": "Content saved and DOCX generated successfully",
+            "docx_generated": True,
+            "document_id": docx_info["document_id"] if docx_info else None
+        }
+    else:
+        return {
+            "message": "Content saved to database. DOCX generation failed.",
+            "docx_generated": False
+        }
+
+
+@app.post("/api/contracts/{contract_id}/ensure-docx")
+async def ensure_docx_for_review(contract_id: str, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+
+    existing_docx = await db.documents.find_one(
+        {
+            "contractId": contract_id,
+            "$or": [
+                {"fileType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                {"fileName": {"$regex": r"\.docx$", "$options": "i"}}
+            ]
+        },
+        sort=[("version", -1)]
+    )
+    if existing_docx:
+        return {"document_id": str(existing_docx["_id"]), "created": False}
+
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    user_label = current_user.get("email") or "System"
+    try:
+        if (contract.get("template_type") or "").upper() == "NDA":
+            nda_docx_path = generate_nda_docx(
+                contract_id,
+                contract.get("company", "Unknown"),
+                contract.get("description", ""),
+                contract.get("expiry_date", "")
+            )
+            await db.contracts.update_one(
+                {"_id": ObjectId(contract_id)},
+                {"$set": {"latest_docx_path": nda_docx_path, "docx_version": int(contract.get("docx_version", 0)) + 1}}
+            )
+            path_obj = pathlib.Path(nda_docx_path)
+            last_doc = await db.documents.find_one({"contractId": contract_id}, sort=[("version", -1)])
+            version = (last_doc["version"] + 1) if last_doc else 1
+            rec = Document(
+                contractId=contract_id,
+                fileName=path_obj.name,
+                fileType="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileSize=path_obj.stat().st_size if path_obj.exists() else 0,
+                storagePath=nda_docx_path,
+                version=version,
+                uploadedBy=user_label,
+                category="Original"
+            )
+            inserted = await db.documents.insert_one(rec.model_dump(by_alias=True, exclude_none=True))
+            return {"document_id": str(inserted.inserted_id), "created": True}
+
+        seed_content = (
+            contract.get("draftText")
+            or contract.get("extractedText")
+            or contract.get("description")
+            or contract.get("title")
+            or "Contract content not available."
+        )
+        docx_info = await _create_docx_version(contract_id, seed_content, user_label, category_hint="Original")
+        return {"document_id": docx_info["document_id"], "created": True}
+    except Exception as e:
+        logger.error(f"Failed to ensure DOCX for contract {contract_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate DOCX for review")
+
+>>>>>>> Stashed changes
 @app.post("/api/cas/{cas_id}/approve")
 async def approve_cas(cas_id: str, action: str = Body(...)):
     # Action can be Approve or Reject
@@ -3660,6 +4921,7 @@ async def redline_clause_endpoint(data: dict = Body(...)):
     )
     return result
 
+<<<<<<< Updated upstream
 @app.post("/api/ai/extract-email")
 async def extract_email(data: dict = Body(...)):
     # Handle both frontend 'email_text' and potential backend 'body'
@@ -3714,6 +4976,8 @@ async def track_lifecycle_endpoint(data: dict = Body(...)):
     )
     return result
 
+=======
+>>>>>>> Stashed changes
 @app.post("/api/ai/generate-cas-notes")
 async def generate_cas_notes(data: dict = Body(...)):
     contract_id = data.get("contract_id", "")
@@ -3854,6 +5118,78 @@ async def download_document(document_id: str):
         media_type=doc["fileType"],
     )
 
+<<<<<<< Updated upstream
+=======
+@app.get("/api/documents/{document_id}/view")
+async def get_document_view_data(document_id: str):
+    if not ObjectId.is_valid(document_id):
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+    doc = await db.documents.find_one({"_id": ObjectId(document_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    file_path = pathlib.Path(doc["storagePath"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    
+    file_extension = pathlib.Path(doc["fileName"]).suffix.lower()
+    
+    if file_extension == ".pdf":
+        return {"type": "pdf", "url": f"/api/documents/{document_id}/download"}
+    
+    elif file_extension == ".docx":
+        if doc.get("renderedHtml"):
+            return {
+                "type": "docx",
+                "render_mode": "html",
+                "content": doc.get("renderedHtml")
+            }
+        return {
+            "type": "docx",
+            "render_mode": "docx-preview",
+            "url": f"/api/documents/{document_id}/download"
+        }
+    
+    else:
+        # Fallback for text files or unknown
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return {"type": "text", "content": content}
+        except Exception:
+            return {"type": "unsupported", "message": "This file type cannot be viewed in-app."}
+
+@app.get("/api/contracts/{contract_id}/comments")
+async def get_contract_comments(contract_id: str, department: Optional[str] = None):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+    
+    query = {"contractId": contract_id}
+    if department:
+        query["department"] = department
+        
+    cursor = db.comments.find(query).sort("createdAt", 1)
+    comments = await cursor.to_list(length=100)
+    for c in comments:
+        c["id"] = str(c["_id"])
+        del c["_id"]
+    return comments
+
+@app.post("/api/contracts/{contract_id}/comments")
+async def add_contract_comment(contract_id: str, comment_data: ReviewComment):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+    
+    comment_dict = comment_data.model_dump(by_alias=True, exclude_none=True)
+    comment_dict["contractId"] = contract_id
+    
+    result = await db.comments.insert_one(comment_dict)
+    return {
+        "message": "Comment added successfully",
+        "commentId": str(result.inserted_id)
+    }
+
+>>>>>>> Stashed changes
 @app.delete("/api/documents/{document_id}")
 async def delete_document(document_id: str):
     if not ObjectId.is_valid(document_id):
@@ -3868,6 +5204,7 @@ async def delete_document(document_id: str):
     await db.documents.delete_one({"_id": ObjectId(document_id)})
     return {"message": "Document deleted successfully"}
 
+<<<<<<< Updated upstream
 @app.post("/api/ai/generate-draft")
 async def generate_draft(data: dict = Body(...)):
     try:
@@ -4075,3 +5412,174 @@ async def extract_file(file: UploadFile = File(...)):
         }
 
 # --- DigiInk Digital Signature Integration ---
+=======
+@app.post("/api/contracts/{contract_id}/send-for-signature")
+async def send_for_signature(contract_id: str, current_user: dict = Depends(get_current_user)):
+    print(f"DEBUG: Entering send_for_signature for contract_id: {contract_id}")
+    if not ObjectId.is_valid(contract_id):
+        print(f"DEBUG: Invalid contract_id: {contract_id}")
+        raise HTTPException(status_code=400, detail="Invalid contract ID")
+    
+    # 1. Fetch Contract
+    print(f"DEBUG: Fetching contract {contract_id} from DB...")
+    contract = await db.contracts.find_one({"_id": ObjectId(contract_id)})
+    if not contract:
+        print(f"DEBUG: Contract {contract_id} not found in DB")
+        raise HTTPException(status_code=404, detail="Contract not found")
+        
+    # 2. Fetch Document
+    print(f"DEBUG: Fetching latest document for contract {contract_id}")
+    doc = await db.documents.find_one({"contractId": contract_id}, sort=[("uploadedAt", -1)])
+    if not doc:
+        print(f"DEBUG: No document found for contract {contract_id}")
+        raise HTTPException(status_code=404, detail="No document found for this contract")
+    
+    # 2.1 Robust Path Resolution
+    # storagePath is the field set by the upload endpoint
+    db_path = doc.get("storagePath") or doc.get("file_path", "")
+    print(f"DEBUG: DB Document storagePath: {db_path}")
+    
+    # Extract filename correctly regardless of it being a Windows or Linux path
+    filename = PureWindowsPath(db_path).name if db_path else doc.get("fileName", "")
+    print(f"DEBUG: Extracted filename: {filename}")
+    
+    # Search for the file in possible locations (only accept actual files, not directories)
+    candidate_paths = [
+        # 1. Exact stored path
+        db_path,
+        # 2. Inside contract-specific folder in uploads/ (Modern convention)
+        os.path.join("uploads", contract_id, filename) if filename else None,
+        # 3. Directly in uploads/
+        os.path.join("uploads", filename) if filename else None,
+        # 4. In uploaded_contracts/ (Legacy convention)
+        os.path.join("uploaded_contracts", filename) if filename else None,
+    ]
+    
+    file_path = None
+    for path in candidate_paths:
+        if path and os.path.isfile(path):  # isfile() rejects directories
+            file_path = path
+            print(f"DEBUG: Successfully resolved file to: {file_path}")
+            break
+    
+    if not file_path:
+        # Last resort: walk the contract upload dir and find any file
+        contract_upload_dir = os.path.join("uploads", contract_id)
+        if os.path.isdir(contract_upload_dir):
+            for f in os.listdir(contract_upload_dir):
+                candidate = os.path.join(contract_upload_dir, f)
+                if os.path.isfile(candidate):
+                    file_path = candidate
+                    print(f"DEBUG: Found file by directory scan: {file_path}")
+                    break
+    
+    if not file_path:
+        print(f"DEBUG: File not found. candidates tried: {[p for p in candidate_paths if p]}")
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+        
+    # 3. Prepare recipients
+    initiator_email = contract.get("submittedBy", ADMIN_EMAIL)
+    print(f"DEBUG: Initiator email: {initiator_email}, Admin email: {ADMIN_EMAIL}")
+    
+    # Simple whitelist check for initiator and sender
+    try:
+        await check_domain_whitelist(initiator_email)
+        await check_domain_whitelist(ADMIN_EMAIL)
+    except Exception as e:
+        print(f"DEBUG: Whitelist check failed: {str(e)}")
+        raise e
+
+    recipients = [
+        {"email": initiator_email, "name": "Initiator", "role": "signer"},
+        {"email": ADMIN_EMAIL, "name": contract.get("company", "Enterprise Services"), "role": "signer"}
+    ]
+    
+    try:
+        print(f"DEBUG: Calling digink_service.create_document...")
+        result = await digink_service.create_document(
+            sender_email=ADMIN_EMAIL,
+            title=contract.get("title", "Contract Signature Request"),
+            file_path=file_path,
+            recipients=recipients
+        )
+        
+        # Save DigInk tracking info
+        digink_id = result.get("document_id") or result.get("id")
+        print(f"DEBUG: DigInk success! ID: {digink_id}")
+        digink_doc = {
+            "contractId": contract_id,
+            "diginkDocumentId": digink_id,
+            "status": "Sent",
+            "createdAt": datetime.utcnow().isoformat(),
+            "updatedAt": datetime.utcnow().isoformat()
+        }
+        await db.digink_documents.insert_one(digink_doc)
+        
+        # Update contract stage
+        await db.contracts.update_one(
+            {"_id": ObjectId(contract_id)},
+            {"$set": {"stage": "Sent for Signature", "status": "Sent for Signature"}}
+        )
+        
+        await log_action("Send for Signature", current_user.get("email", "Admin"), current_user.get("role", "User"), 
+                         f"Contract '{contract.get('title')}' sent for signature via DigInk.", contract_id)
+        
+        print(f"DEBUG: Returning success for {contract_id}")
+        return {"message": "Document sent for signature successfully", "digink_id": digink_id}
+    except Exception as e:
+        error_msg = str(e)
+        print(f"DEBUG: DigInk Service Error: {error_msg}")
+        await log_action("Signature Failure", current_user.get("email", "Admin"), current_user.get("role", "User"), 
+                         f"Failed to send '{contract.get('title')}' for signature: {error_msg}", contract_id)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@app.post("/api/webhook/digink")
+async def digink_webhook(payload: dict = Body(...)):
+    doc_id = payload.get("document_id")
+    status = payload.get("status")
+    
+    if not doc_id or not status:
+        return {"status": "ignored"}
+        
+    digink_doc = await db.digink_documents.find_one({"diginkDocumentId": doc_id})
+    if not digink_doc:
+        return {"status": "not_found"}
+        
+    await db.digink_documents.update_one(
+        {"diginkDocumentId": doc_id},
+        {"$set": {"status": status, "updatedAt": datetime.utcnow().isoformat()}}
+    )
+    
+    if status == "signed":
+        await db.contracts.update_one(
+            {"_id": ObjectId(digink_doc["contractId"])},
+            {"$set": {"stage": "Signed", "status": "Approved"}}
+        )
+        
+        contract = await db.contracts.find_one({"_id": ObjectId(digink_doc["contractId"])})
+        if contract:
+            await add_notification(
+                for_user=contract.get("submittedBy"),
+                message=f"Contract '{contract.get('title')}' has been fully signed via DigInk!",
+                type="success",
+                contract_id=str(contract["_id"]),
+                contract_title=contract.get("title")
+            )
+            
+    return {"status": "success"}
+
+@app.get("/api/contracts/{contract_id}/digink-status")
+async def get_digink_status(contract_id: str):
+    if not ObjectId.is_valid(contract_id):
+        raise HTTPException(400, "Invalid contract ID")
+    
+    digink_doc = await db.digink_documents.find_one({"contractId": contract_id})
+    if not digink_doc:
+        return {"status": "Not Sent"}
+    
+    return {
+        "status": digink_doc.get("status"),
+        "diginkDocumentId": digink_doc.get("diginkDocumentId"),
+        "updatedAt": digink_doc.get("updatedAt")
+    }
+>>>>>>> Stashed changes

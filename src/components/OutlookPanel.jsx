@@ -7,15 +7,81 @@ import Reports from './Reports';
 import Dashboard from './Dashboard';
 import Reviews from './Reviews';
 import Settings from './Settings';
+<<<<<<< Updated upstream
 import AllContracts from './AllContracts';
 import DepartmentContracts from './DepartmentContracts';
 import Sidebar from './Sidebar';
+=======
+import AdminManagement from './AdminManagement';
+import UserManagement from './UserManagement';
+import AuditLogs from './AuditLogs';
+import UserAuditLogs from './UserAuditLogs';
+import MyContracts from './MyContracts';
+import DocumentViewer from './DocumentViewer';
+import NotificationsPanel from './NotificationsPanel';
+import ChiefLegalOfficerReview from './ChiefLegalOfficerReview';
+
+>>>>>>> Stashed changes
 import { contractService } from '../services/contractService';
 import { Bell, Search, Sun, Moon } from 'lucide-react';
 
 const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
+<<<<<<< Updated upstream
     const getInitialNav = () => window.location.pathname === '/department-contracts' ? 'Department Contracts' : 'Dashboard';
     const [activeNav, setActiveNav] = useState(getInitialNav);
+=======
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Derive activeNav from URL
+    const getActiveNavFromUrl = () => {
+        const path = location.pathname.split('/').pop(); // Gets 'dashboard', 'contracts', etc.
+        if (!path || path === user?.role?.toLowerCase()) return 'Dashboard';
+        if (user?.role === 'User' && path === 'reviews') return 'Dashboard';
+        
+        // Map path back to Nav Item Name
+        const mapping = {
+            'dashboard': 'Dashboard',
+            'contracts': 'Contracts',
+            'my-contracts': 'My Requests',
+            'create-contract': 'Create Request',
+            'reviews': 'Reviews',
+            'cas': 'CAS',
+            'doa-approvals': 'DOA Approvals',
+            'approvals': 'Approvals',
+            'reports': 'Reports',
+            'settings': 'Settings',
+            'manage-admins': 'Manage Admins',
+            'manage-users': 'Manage Users',
+            'audit-logs': 'Audit Logs'
+        };
+        return mapping[path] || 'Dashboard';
+    };
+
+    const activeNav = getActiveNavFromUrl();
+    const setActiveNav = (navName) => {
+        const mapping = {
+            'Dashboard': 'dashboard',
+            'Contracts': 'contracts',
+            'My Requests': 'my-contracts',
+            'Create Request': 'create-contract',
+            'Reviews': 'reviews',
+            'CAS': 'cas',
+            'DOA Approvals': 'doa-approvals',
+            'Approvals': 'approvals',
+            'Reports': 'reports',
+            'Settings': 'settings',
+            'Manage Admins': 'manage-admins',
+            'Manage Users': 'manage-users',
+            'Audit Logs': 'audit-logs'
+        };
+        const path = mapping[navName] || 'dashboard';
+        if (navName === 'Create Request') {
+            setCreateRequestResetToken((prev) => prev + 1);
+        }
+        navigate(`/${user.role.toLowerCase()}/${path}`);
+    };
+>>>>>>> Stashed changes
 
     // Live Clock State
     const [time, setTime] = useState(new Date());
@@ -35,6 +101,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
     const [notifs, setNotifs] = useState([]);
     const [showNotifs, setShowNotifs] = useState(false);
     const notifRef = useRef(null);
+<<<<<<< Updated upstream
 
     const navigateTo = (target) => {
         const isDepartmentRole = ['Legal', 'Finance', 'Compliance', 'Procurement'].includes(user?.role);
@@ -42,6 +109,62 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
             window.history.pushState({}, '', '/department-contracts');
             setActiveNav('Department Contracts');
             return;
+=======
+    const [viewingContractId, setViewingContractId] = useState(null);
+    const [isHealthPanelOpen, setIsHealthPanelOpen] = useState(false);
+    const [createRequestResetToken, setCreateRequestResetToken] = useState(0);
+
+    const allNavItems = [
+        { name: 'Dashboard', icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
+        { name: 'Contracts', icon: <Upload size={20} strokeWidth={1.5} /> },
+        { name: 'My Requests', icon: <FileText size={20} strokeWidth={1.5} /> },
+        { name: 'Create Request', icon: <Upload size={20} strokeWidth={1.5} /> },
+        { name: 'Reviews', icon: <Scale size={20} strokeWidth={1.5} /> },
+        { name: 'CAS', icon: <FileText size={20} strokeWidth={1.5} /> },
+        { name: 'DOA Approvals', icon: <ClipboardCheck size={20} strokeWidth={1.5} /> },
+        { name: 'Reports', icon: <BarChart2 size={20} strokeWidth={1.5} /> },
+        { name: 'Settings', icon: <SettingsIcon size={20} strokeWidth={1.5} /> },
+        { name: 'Manage Admins', icon: <Shield size={20} strokeWidth={1.5} /> },
+        { name: 'Manage Users', icon: <Users size={20} strokeWidth={1.5} /> },
+        { name: 'Audit Logs', icon: <ClipboardList size={20} strokeWidth={1.5} /> },
+    ];
+
+    const getNavItemsByRole = (role) => {
+        switch (role) {
+            case 'Superadmin':
+                return allNavItems.filter(item => [
+                    'Dashboard', 'Manage Admins', 'Manage Users', 
+                    'Contracts', 'Settings', 'Reports', 'Audit Logs'
+                ].includes(item.name));
+            case 'User':
+                return allNavItems.map(item => {
+                    if (item.name === 'DOA Approvals') {
+                        return { ...item, name: 'Approvals' };
+                    }
+                    return item;
+                }).filter(item => [
+                    'Dashboard', 'My Requests', 'Create Request', 
+                    'Approvals', 'Settings', 'Audit Logs'
+                ].includes(item.name));
+            case 'Legal':
+            case 'Finance':
+            case 'Compliance':
+            case 'Procurement':
+                return allNavItems.filter(item => ['Dashboard', 'Reviews', 'Reports', 'Settings'].includes(item.name));
+            case 'CLO':
+                return allNavItems.filter(item => ['Dashboard', 'Reviews', 'CAS', 'Reports', 'Settings'].includes(item.name));
+            case 'Sales':
+                return allNavItems.filter(item => ['Dashboard', 'Settings'].includes(item.name));
+            case 'Manager':
+                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'Reports', 'Settings'].includes(item.name));
+            case 'CEO':
+                return allNavItems.filter(item => ['Dashboard', 'DOA Approvals', 'Reports', 'Settings'].includes(item.name));
+            case 'Admin':
+            default:
+                return allNavItems.filter(item => ![
+                    'My Requests', 'Create Request', 'CAS', 'Manage Admins', 'Manage Users', 'Audit Logs'
+                ].includes(item.name));
+>>>>>>> Stashed changes
         }
         const nextPath = target === 'Department Contracts' ? '/department-contracts' : '/';
         window.history.pushState({}, '', nextPath);
@@ -87,7 +210,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
         return () => clearTimeout(delayDebounceFn);
     }, [searchQuery]);
 
-    // Notifications effect — real API polling every 30s
+    // Notifications effect — live polling + focus refresh
     const fetchNotifications = async () => {
         try {
             const data = await contractService.getNotifications(user?.role || 'Admin');
@@ -100,9 +223,26 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
 
     useEffect(() => {
         fetchNotifications();
+<<<<<<< Updated upstream
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [user?.role]);
+=======
+        const interval = setInterval(fetchNotifications, 5000);
+        const handleFocus = () => fetchNotifications();
+        const handleVisibility = () => {
+            if (!document.hidden) fetchNotifications();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [user?.role, user?.email]);
+>>>>>>> Stashed changes
 
     // Click outside handler
     useEffect(() => {
@@ -297,6 +437,7 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                                 onRefresh={triggerDashboardRefresh}
                             />
                         </div>
+<<<<<<< Updated upstream
                     ) : activeNav === 'CAS' ? (
                         <div className={styles.fullWidthSection}>
                             <CAS user={user} />
@@ -339,6 +480,80 @@ const OutlookPanel = ({ user, onLogout, theme, onToggleTheme }) => {
                             <p>This module is currently under development.</p>
                         </div>
                     )}
+=======
+                    ) : (() => {
+                        const navItems = getNavItemsByRole(user?.role);
+                        const isAllowed = navItems.some(item => item.name === activeNav) || activeNav === 'Dashboard';
+                        
+                        if (!isAllowed) {
+                            return (
+                                <div className={styles.placeholder}>
+                                    <h3 style={{ color: '#EF4444' }}>Access Denied</h3>
+                                    <p>Your account ({user?.role}) does not have permission to access the "{activeNav}" module.</p>
+                                </div>
+                            );
+                        }
+
+                        if (activeNav === 'Contracts') {
+                            return <div className={styles.fullWidthSection}><UploadContract user={user} onOpenContract={setViewingContractId} /></div>;
+                        }
+                        if (activeNav === 'My Requests') {
+                            return <div className={styles.fullWidthSection}><MyContracts user={user} onOpenContract={setViewingContractId} /></div>;
+                        }
+                        if (activeNav === 'Create Request') {
+                            return (
+                                <div className={styles.fullWidthSection}>
+                                    <UploadContract
+                                        user={user}
+                                        initialTab="self-service"
+                                        onOpenContract={setViewingContractId}
+                                        resetToken={createRequestResetToken}
+                                    />
+                                </div>
+                            );
+                        }
+                        if (activeNav === 'CAS') {
+                            return <div className={styles.fullWidthSection}><CAS user={user} /></div>;
+                        }
+                        if (activeNav === 'DOA Approvals' || activeNav === 'Approvals') {
+                            return <div className={styles.fullWidthSection}><Approvals user={user} onNavigate={setActiveNav} /></div>;
+                        }
+                        if (activeNav === 'Reviews') {
+                            if (user?.role === 'CLO') {
+                                return <div className={styles.fullWidthSection}><ChiefLegalOfficerReview user={user} /></div>;
+                            }
+                            return <div className={styles.fullWidthSection}><Reviews user={user} /></div>;
+                        }
+                        if (activeNav === 'Reports') {
+                            return <div className={styles.fullWidthSection}><Reports user={user} /></div>;
+                        }
+                        if (activeNav === 'Dashboard') {
+                            return <div className={styles.fullWidthSection}><Dashboard user={user} /></div>;
+                        }
+                        if (activeNav === 'Settings') {
+                            return <div className={styles.fullWidthSection}><Settings user={user} /></div>;
+                        }
+                        if (activeNav === 'Manage Admins') {
+                            return <div className={styles.fullWidthSection}><AdminManagement /></div>;
+                        }
+                        if (activeNav === 'Manage Users') {
+                            return <div className={styles.fullWidthSection}><UserManagement /></div>;
+                        }
+                        if (activeNav === 'Audit Logs') {
+                            if (user?.role === 'User') {
+                                return <div className={styles.fullWidthSection}><UserAuditLogs /></div>;
+                            }
+                            return <div className={styles.fullWidthSection}><AuditLogs /></div>;
+                        }
+                        
+                        return (
+                            <div className={styles.placeholder}>
+                                <h3>{activeNav}</h3>
+                                <p>This module is currently under development.</p>
+                            </div>
+                        );
+                    })()}
+>>>>>>> Stashed changes
                 </main>
             </div>
 

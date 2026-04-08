@@ -33,6 +33,7 @@ export const contractService = {
         return await response.json();
     },
 
+<<<<<<< Updated upstream
     getDepartmentContracts: async (department) => {
         const response = await fetch(`${API_BASE}/contracts?department=${encodeURIComponent(department)}`, {
             headers: getAuthHeaders()
@@ -66,6 +67,8 @@ export const contractService = {
         return await response.json();
     },
 
+=======
+>>>>>>> Stashed changes
     updateContractStage: async (id, stage, status) => {
         const action = status === 'Approved' ? 'approve' : 'reject';
         const response = await fetch(`${API_BASE}/contracts/doa/${id}/${action}`, {
@@ -86,6 +89,7 @@ export const contractService = {
         return await response.json();
     },
 
+<<<<<<< Updated upstream
     parseEmailContent: async (emailData) => {
         const response = await fetch(`${API_BASE}/ai/extract-email`, {
             method: 'POST',
@@ -211,6 +215,8 @@ export const contractService = {
         return await response.json();
     },
 
+=======
+>>>>>>> Stashed changes
     getComments: async (contractId, department = null) => {
         let url = `/api/contracts/${contractId}/comments`;
         if (department) {
@@ -353,4 +359,30 @@ export const contractService = {
         return response.json();
     },
 
+<<<<<<< Updated upstream
+=======
+    getDiginkStatus: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/digink-status`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch DigInk status');
+        return await response.json();
+    },
+    
+    getUserAuditLogs: async () => {
+        const response = await fetch(`${API_BASE}/user/audit-logs`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch user audit logs');
+        return await response.json();
+    },
+
+    // Clears all PDF annotations for a contract (used when re-sharing or resubmitting)
+    clearContractAnnotations: async (contractId) => {
+        const response = await fetch(`${API_BASE}/contracts/${contractId}/pdf-annotations/clear-all`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+        });
+        if (!response.ok) throw new Error('Failed to clear annotations');
+        return await response.json();
+    },
+>>>>>>> Stashed changes
 };

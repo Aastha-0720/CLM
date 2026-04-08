@@ -16,6 +16,7 @@ services:
     volumes:
       - ./backend:/app
       - contract_files:/app/uploads
+      - ./template:/app/template
     env_file:
       - .env
     environment:
@@ -33,12 +34,14 @@ services:
   mongo-express:
     image: mongo-express:latest
     ports:
-      - "8081:8081"
+      - "${MONGO_EXPRESS_PORT:-8082}:8081"
+    env_file:
+      - .env
     environment:
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+      - ME_CONFIG_MONGODB_SERVER=${ME_CONFIG_MONGODB_SERVER:-mongodb}
+      - ME_CONFIG_MONGODB_PORT=${ME_CONFIG_MONGODB_PORT:-27017}
+      - ME_CONFIG_BASICAUTH_USERNAME=${ME_CONFIG_BASICAUTH_USERNAME:-admin}
+      - ME_CONFIG_BASICAUTH_PASSWORD=${ME_CONFIG_BASICAUTH_PASSWORD:-admin123}
     depends_on:
       - mongodb
     restart: unless-stopped

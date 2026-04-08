@@ -146,6 +146,48 @@ class Contract(BaseModel):
     escalatedBy: Optional[str] = None
     escalatedAt: Optional[str] = None
     escalationReason: Optional[str] = None
+<<<<<<< Updated upstream:backend/models.py
+=======
+    draftText: Optional[str] = None
+    draftHtml: Optional[str] = None
+    pdf_path: Optional[str] = None
+    pdf_generated: bool = False
+    pdf_version: int = 1
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class PdfFile(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    contractId: str
+    template_type: str = "NDA"
+    file_path: str
+    generated_by: str
+    generated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    version: int = 1
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class PdfAnnotation(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    contractId: str
+    page: int
+    x: float
+    y: float
+    text: str
+    author: str
+    role: str
+    color: str = "#f59e0b"
+    docType: str = "pdf"  # "pdf" | "docx"
+    targetDocumentId: Optional[str] = None
+    createdAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    resolved: bool = False
+>>>>>>> Stashed changes:backend/models/__init__.py
 
     class Config:
         populate_by_name = True
@@ -234,6 +276,8 @@ class Document(BaseModel):
     uploadedAt: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     category: str = "General"
     tags: List[str] = Field(default_factory=list)
+    renderedHtml: Optional[str] = None
+    renderMode: Optional[str] = None
 
     class Config:
         populate_by_name = True

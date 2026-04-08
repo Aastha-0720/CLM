@@ -36,6 +36,19 @@ const Reviews = ({ user }) => {
         };
 
         fetchCounts();
+        const interval = setInterval(fetchCounts, 5000);
+        const handleFocus = () => fetchCounts();
+        const handleVisibility = () => {
+            if (!document.hidden) fetchCounts();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, []);
 
     const departments = [
@@ -49,7 +62,10 @@ const Reviews = ({ user }) => {
     if (user?.role === 'Finance') return <FinanceReview user={user} />;
     if (user?.role === 'Compliance') return <ComplianceReview user={user} />;
     if (user?.role === 'Procurement') return <ProcurementReview user={user} />;
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
     if (activeDepartment) {
         const activeItem = departments.find(d => d.id === activeDepartment);
         return (
